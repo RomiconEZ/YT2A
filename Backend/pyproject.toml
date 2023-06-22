@@ -6,17 +6,17 @@ authors = ["Roman Neronov <roman.nieronov@mail.ru>", "Ivan Platonov <platonov.iv
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "==3.10.11"
 numpy = "<= 1.21.5"
 pydub = "^0.25.1"
 SpeechRecognition = "^3.8.1"
 pandas = "^1.1.5"
 ffmpeg-python = "^0.2.0"
-librosa = "^0.8.1"
 soundfile = "<= 0.10.3post1"
 pytube = {git = "https://github.com/Federico-German/pytube-fixed"}
 fastapi = "^0.97.0"
 pydantic = "^1.10.9"
+langdetect = "^1.0.9"
 
 [build-system]
 requires = ["poetry-core"]

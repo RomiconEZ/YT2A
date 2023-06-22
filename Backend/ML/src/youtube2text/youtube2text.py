@@ -6,7 +6,8 @@ import os
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 from datetime import datetime
-import librosa
+import cv2
+
 import logging
 import sys
 
@@ -108,7 +109,7 @@ class Youtube2Text:
             self.url2audio(audiofile=audiofile, audiosamplingrate=audiosamplingrate, yt=yt)
         elif urlpath != None:
             self.url2audio(urlpath=urlpath, audiofile=audiofile, audiosamplingrate=audiosamplingrate)
-          # Изменить на определение языка
+        # Изменить на определение языка
         df = self.audio2text(audiofile=audiofile, textfile=textfile, lang=lang)
         return df
 
@@ -149,11 +150,17 @@ class Youtube2Text:
             logger.info(f"Audio file exist at {audiofile}. Download skipped")
 
         else:
-            if urlpath!=None and yt==None:
+            if urlpath != None and yt == None:
                 yt = YouTube(urlpath)
 
             stream_url = yt.streams[0].url
-            print(yt.streams[0])
+
+            video = self.get_yt_video(yt)
+            print("--------------------------------")
+            print(type(video))
+            #video.download(filename="video.mp4")
+
+            print("--------------------------------")
             acodec = 'pcm_s16le' if audioformat == 'wav' else audioformat
 
             logger.info(f"Audio at sample rate {audiosamplingrate}")
@@ -169,6 +176,12 @@ class Youtube2Text:
                 f.write(audio)
 
             logger.info(f"Download completed at {audiofile}")
+
+    def get_yt_video(self, yt):
+        video = yt.streams.get_highest_resolution()
+        # get the video with the extension and
+        # resolution passed in the get() function
+        return video
 
     def audio2text(self, audiofile, textfile=None, lang="en-US"):
         '''
@@ -226,8 +239,8 @@ class Youtube2Text:
                                                  audiochunkpath=audiochunkpath, lang=lang)
 
         return df
-        #df.to_csv(textfile, index=False)
-        #logger.info(f"Output text file saved at {textfile}")
+        # df.to_csv(textfile, index=False)
+        # logger.info(f"Output text file saved at {textfile}")
 
     def _get_large_audio_transcription(self, audiofullpath, audiochunkfolder, audiochunkpath=None, lang="en-US"):
         '''
