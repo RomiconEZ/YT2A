@@ -2,7 +2,7 @@ import fastapi
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.endpoints import router as app_router
-import config
+from app.config import get_app_settings
 
 
 __app = None
@@ -17,8 +17,8 @@ def get_app() -> fastapi.FastAPI:
     
     if __app is None:
         __app = fastapi.FastAPI(
-            title=config.get_settings().TITLE,
-            version=config.get_settings().VERSION,
+            title=get_app_settings().TITLE,
+            version=get_app_settings().VERSION,
         )
         
         __app.add_middleware(

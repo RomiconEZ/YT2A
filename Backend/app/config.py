@@ -10,10 +10,11 @@ class Environment(enum.Enum):
     DOCKER = "DOCKER"  # local testing with docker
     PRODUCTION = "PRODUCTION"  # production or production-like environment
 
+
 class App(pydantic.BaseSettings):
     """General application config."""
 
-    TITLE: str = pydantic.Field(default="Youtube2Article")
+    TITLE: str = pydantic.Field(default="YT2A Backend")
     VERSION: str = pydantic.Field(default="0.0.1")
     ENVIRONMENT: Environment = pydantic.Field()
 
@@ -21,9 +22,9 @@ class App(pydantic.BaseSettings):
         env_prefix = "BE_APP_"
         frozen = True
 
-__settings = None
+__app_settings = None
 
-def get_settings() -> App: 
+def get_app_settings() -> App: 
     """
     Get app settings.
 
@@ -31,7 +32,7 @@ def get_settings() -> App:
         App: app settings   
     """
 
-    if __settings is None:
-        __settings = App()
+    if __app_settings is None:
+        __app_settings = App()
 
-    return __settings
+    return __app_settings
