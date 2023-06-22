@@ -17,6 +17,7 @@ pytube = {git = "https://github.com/Federico-German/pytube-fixed"}
 fastapi = "^0.97.0"
 pydantic = "^1.10.9"
 langdetect = "^1.0.9"
+youtube-dl = "^2021.12.17"
 
 [build-system]
 requires = ["poetry-core"]

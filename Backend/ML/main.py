@@ -1,3 +1,4 @@
+import yt_dlp as youtube_dl
 from pytube import YouTube
 from src.youtube2text.youtube2text import Youtube2Text
 import re
@@ -89,4 +90,13 @@ def parse_subtitles(subtitles_string):
     return df
 
 
-get_subtitles_for_yt("https://www.youtube.com/watch?v=jWAineywlO8")
+video_url = "https://www.youtube.com/watch?v=wddeVYrg-dk"
+
+with youtube_dl.YoutubeDL({}) as ydl:
+    info_dict = ydl.extract_info(video_url, download=False)
+    title = info_dict['title']
+    formats = info_dict['requested_formats']
+print(info_dict)
+
+
+#get_subtitles_for_yt(video_url)
