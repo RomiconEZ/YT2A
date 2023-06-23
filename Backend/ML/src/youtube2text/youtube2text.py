@@ -8,9 +8,14 @@ import os
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 from datetime import datetime
-
 import logging
 import sys
+
+import openai
+import whisper
+
+openai.api_key = "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"
+model_whisper = whisper.load_model("large")
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | [%(filename)s:%(lineno)d] %(message)s",
@@ -22,6 +27,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 import numpy as np
+
+
 def format_times(milliseconds_array):
     hours = milliseconds_array // (1000 * 60 * 60)
     minutes = (milliseconds_array // (1000 * 60)) % 60
@@ -33,6 +40,7 @@ def format_times(milliseconds_array):
         formatted_times.append(f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}")
 
     return np.array(formatted_times)
+
 
 def split_on_silence(audio_segment, min_silence_len=1000, silence_thresh=-16, keep_silence=100,
                      seek_step=1):
@@ -70,22 +78,23 @@ def split_on_silence(audio_segment, min_silence_len=1000, silence_thresh=-16, ke
         keep_silence = len(audio_segment) if keep_silence else 0
 
     output_ranges = [
-        [ start - keep_silence, end + keep_silence ]
-        for (start,end)
-            in detect_nonsilent(audio_segment, min_silence_len, silence_thresh, seek_step)
+        [start - keep_silence, end + keep_silence]
+        for (start, end)
+        in detect_nonsilent(audio_segment, min_silence_len, silence_thresh, seek_step)
     ]
 
     for range_i, range_ii in pairwise(output_ranges):
         last_end = range_i[1]
         next_start = range_ii[0]
         if next_start < last_end:
-            range_i[1] = (last_end+next_start)//2
+            range_i[1] = (last_end + next_start) // 2
             range_ii[0] = range_i[1]
 
     return [
-        [audio_segment[ max(start,0) : min(end,len(audio_segment)) ],max(start,0),min(end,len(audio_segment))]
-        for start,end in output_ranges
+        [audio_segment[max(start, 0): min(end, len(audio_segment))], max(start, 0), min(end, len(audio_segment))]
+        for start, end in output_ranges
     ]
+
 
 class Youtube2Text:
     '''Youtube2Text Class to translates audio to text file'''
@@ -224,7 +233,7 @@ class Youtube2Text:
             video = self.get_yt_video(yt)
             print("--------------------------------")
             print(type(video))
-            #video.download(filename="video.mp4")
+            # video.download(filename="video.mp4")
 
             print("--------------------------------")
             acodec = 'pcm_s16le' if audioformat == 'wav' else audioformat
@@ -366,25 +375,39 @@ class Youtube2Text:
             audio_chunk[0].export(chunkfilepath, format=audioformat)
 
             # recognize the chunk
-            with sr.AudioFile(chunkfilepath) as source:
-                audio_listened = self.recognizer.record(source)
-                # try converting it to text
-                try:
-                    text = self.recognizer.recognize_google(audio_listened, language=lang)  # !!!!
-                except sr.UnknownValueError as e:
-                    whole_text.append("None")
-                    start_time.append(audio_chunk[1])
-                    end_time.append(audio_chunk[2])
-                else:
-                    text = f"{text.capitalize()}. "
-                    whole_text.append(text)
-                    start_time.append(audio_chunk[1])
-                    end_time.append(audio_chunk[2])
+            # with sr.AudioFile(chunkfilepath) as source:
+            #     audio_listened = self.recognizer.record(source)
+            #     # try converting it to text
+            #     try:
+            #         #text = self.recognizer.recognize_google(audio_listened, language=lang)
+            #     except sr.UnknownValueError as e:
+            #         whole_text.append("None")
+            #         start_time.append(audio_chunk[1])
+            #         end_time.append(audio_chunk[2])
+            #     else:
+            #         text = f"{text.capitalize()}. "
+            #         whole_text.append(text)
+            #         start_time.append(audio_chunk[1])
+            #         end_time.append(audio_chunk[2])
+
+            try:
+                result = model_whisper.transcribe(chunkfilepath)
+                text = result["text"]
+
+            except sr.UnknownValueError as e:
+                whole_text.append("None")
+                start_time.append(audio_chunk[1])
+                end_time.append(audio_chunk[2])
+            else:
+                text = f"{text.capitalize()}. "
+                whole_text.append(text)
+                start_time.append(audio_chunk[1])
+                end_time.append(audio_chunk[2])
 
             audio_file.append(os.path.join(audiochunkfolder, chunkfilename))
 
         # return as df
-        df = pd.DataFrame({"text": whole_text, "file": audio_file, "start_time": start_time , "end_time": end_time})
+        df = pd.DataFrame({"text": whole_text, "file": audio_file, "start_time": start_time, "end_time": end_time})
         df["start_time"] = format_times(df["start_time"])
         df["end_time"] = format_times(df["end_time"])
 
