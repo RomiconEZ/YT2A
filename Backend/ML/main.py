@@ -79,8 +79,8 @@ def get_subtitles_for_yt(link: str):
 
         else:
             if lang_for_vid is not None:
-                #df = generate_subtitles(lang=lang_for_vid, yt=yt)
-                #df.to_csv('gen_sub.csv')
+                df = generate_subtitles(lang=lang_for_vid, yt=yt)
+                df.to_csv('gen_sub.csv')
                 print('save to csv')
     except Exception as e:
         print("Произошла ошибка:", e)

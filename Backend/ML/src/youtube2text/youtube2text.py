@@ -21,6 +21,19 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+import numpy as np
+def format_times(milliseconds_array):
+    hours = milliseconds_array // (1000 * 60 * 60)
+    minutes = (milliseconds_array // (1000 * 60)) % 60
+    seconds = (milliseconds_array // 1000) % 60
+    milliseconds = milliseconds_array % 1000
+
+    formatted_times = []
+    for h, m, s, ms in zip(hours, minutes, seconds, milliseconds):
+        formatted_times.append(f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}")
+
+    return np.array(formatted_times)
+
 def split_on_silence(audio_segment, min_silence_len=1000, silence_thresh=-16, keep_silence=100,
                      seek_step=1):
     """
@@ -371,7 +384,9 @@ class Youtube2Text:
             audio_file.append(os.path.join(audiochunkfolder, chunkfilename))
 
         # return as df
-        df = pd.DataFrame({"text": whole_text, "file": audio_file, "start_time":start_time , "end_time": end_time})
+        df = pd.DataFrame({"text": whole_text, "file": audio_file, "start_time": start_time , "end_time": end_time})
+        df["start_time"] = format_times(df["start_time"])
+        df["end_time"] = format_times(df["end_time"])
 
         return df
 
