@@ -1,10 +1,12 @@
+import itertools
+
 import pandas as pd
 from pytube import YouTube
 import speech_recognition as sr
 import ffmpeg
 import os
 from pydub import AudioSegment
-from pydub.silence import split_on_silence
+from pydub.silence import detect_nonsilent
 from datetime import datetime
 
 import logging
@@ -19,6 +21,58 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+def split_on_silence(audio_segment, min_silence_len=1000, silence_thresh=-16, keep_silence=100,
+                     seek_step=1):
+    """
+    Returns list of audio segments from splitting audio_segment on silent sections
+
+    audio_segment - original pydub.AudioSegment() object
+
+    min_silence_len - (in ms) minimum length of a silence to be used for
+        a split. default: 1000ms
+
+    silence_thresh - (in dBFS) anything quieter than this will be
+        considered silence. default: -16dBFS
+
+    keep_silence - (in ms or True/False) leave some silence at the beginning
+        and end of the chunks. Keeps the sound from sounding like it
+        is abruptly cut off.
+        When the length of the silence is less than the keep_silence duration
+        it is split evenly between the preceding and following non-silent
+        segments.
+        If True is specified, all the silence is kept, if False none is kept.
+        default: 100ms
+
+    seek_step - step size for interating over the segment in ms
+    """
+
+    # from the itertools documentation
+    def pairwise(iterable):
+        "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+        a, b = itertools.tee(iterable)
+        next(b, None)
+        return zip(a, b)
+
+    if isinstance(keep_silence, bool):
+        keep_silence = len(audio_segment) if keep_silence else 0
+
+    output_ranges = [
+        [ start - keep_silence, end + keep_silence ]
+        for (start,end)
+            in detect_nonsilent(audio_segment, min_silence_len, silence_thresh, seek_step)
+    ]
+
+    for range_i, range_ii in pairwise(output_ranges):
+        last_end = range_i[1]
+        next_start = range_ii[0]
+        if next_start < last_end:
+            range_i[1] = (last_end+next_start)//2
+            range_ii[0] = range_i[1]
+
+    return [
+        [audio_segment[ max(start,0) : min(end,len(audio_segment)) ],max(start,0),min(end,len(audio_segment))]
+        for start,end in output_ranges
+    ]
 
 class Youtube2Text:
     '''Youtube2Text Class to translates audio to text file'''
@@ -284,8 +338,11 @@ class Youtube2Text:
                                   # keep the silence for 1 second, adjustable as well
                                   keep_silence=500,
                                   )
+
         whole_text = []
         audio_file = []
+        start_time = []
+        end_time = []
 
         # process each chunk
         for i, audio_chunk in enumerate(chunks, start=1):
@@ -293,7 +350,7 @@ class Youtube2Text:
             # the `folder_name` directory.
             chunkfilename = f"chunk{i}." + audioformat
             chunkfilepath = os.path.join(audiochunkpath, chunkfilename)
-            audio_chunk.export(chunkfilepath, format=audioformat)
+            audio_chunk[0].export(chunkfilepath, format=audioformat)
 
             # recognize the chunk
             with sr.AudioFile(chunkfilepath) as source:
@@ -303,14 +360,18 @@ class Youtube2Text:
                     text = self.recognizer.recognize_google(audio_listened, language=lang)  # !!!!
                 except sr.UnknownValueError as e:
                     whole_text.append("None")
+                    start_time.append(audio_chunk[1])
+                    end_time.append(audio_chunk[2])
                 else:
                     text = f"{text.capitalize()}. "
                     whole_text.append(text)
+                    start_time.append(audio_chunk[1])
+                    end_time.append(audio_chunk[2])
 
             audio_file.append(os.path.join(audiochunkfolder, chunkfilename))
 
         # return as df
-        df = pd.DataFrame({"text": whole_text, "file": audio_file})
+        df = pd.DataFrame({"text": whole_text, "file": audio_file, "start_time":start_time , "end_time": end_time})
 
         return df
 

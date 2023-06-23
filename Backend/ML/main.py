@@ -4,6 +4,9 @@ from src.youtube2text.youtube2text import Youtube2Text
 import re
 import pandas as pd
 from langdetect import detect
+import openai
+
+openai.api_key = "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"
 
 # a.ru - автоматически сгенерированные английские
 # ru - русский
@@ -51,19 +54,34 @@ def get_subtitles_for_yt(link: str):
         title = yt.title
         lang_for_vid = detect_lang_for_vid(dict_of_lang_subtitles,title)
         print(f"ЯЗЫК: {lang_for_vid}")
-        langs = ["ru", "en", "a.ru", "a.en"]
+        langs = ["ru", "en"]
 
         for lang in langs:
             if lang in dict_of_lang_subtitles:
                 subtitles = yt.captions[lang].generate_srt_captions()
+
+                # response = openai.ChatCompletion.create(
+                #     model="gpt-3.5-turbo",
+                #     messages=[
+                #         {"role": "user",
+                #          "content": f"Based on the subtitles to the video, for each of which there is a number, start time, end time and text. Generate text divided into chapters from subtitles without changing their sequelity and meaning, chapters no more than 10, and specify the start time and the end date for chapters. You cannot change the text too much. Correct the subtitle errors. In the next message I will send the subtitles from which to compose the text. Give me the answer clearly in the format in which you get the subtitles"},
+                #         {"role": "user",
+                #          "content": f"{subtitles}"}
+                #     ]
+                # )
+                # # print response
+                # content_value = response["choices"][0]["message"]["content"]
+                # print(content_value)
+
                 df_yt = parse_subtitles(subtitles)
                 df_yt.to_csv('yt_sub.csv')
                 break
-        #else:
-        if lang_for_vid is not None:
-            df = generate_subtitles(lang=lang_for_vid, yt=yt)
-            df.to_csv('gen_sub.csv')
-            print('save to csv')
+
+        else:
+            if lang_for_vid is not None:
+                #df = generate_subtitles(lang=lang_for_vid, yt=yt)
+                #df.to_csv('gen_sub.csv')
+                print('save to csv')
     except Exception as e:
         print("Произошла ошибка:", e)
 
@@ -90,7 +108,7 @@ def parse_subtitles(subtitles_string):
     return df
 
 
-url = "https://www.youtube.com/watch?v=wddeVYrg-dk"
+url = "https://www.youtube.com/watch?v=_BD2qY7MYXY&list=PL6Nx1KDcurkCkGiG0hKWtBOQoDqnIBf9E&index=6"
 
 import subprocess
 
@@ -111,5 +129,12 @@ def extract_picture_from_yt_video(url:str,start_time:str = "00:00:00.000", nm_pc
         ffmpeg_command = f'ffmpeg -ss {start_time} -i "{video_url}" -frames:v 1 -update 1 -y {nm_pct_with_ext}'
         subprocess.run(ffmpeg_command, shell=True)
 
-extract_picture_from_yt_video(url, start_time = "00:03:00.000")
-#get_subtitles_for_yt(url)
+#extract_picture_from_yt_video(url, start_time = "00:03:00.000")
+
+get_subtitles_for_yt(url)
+
+#openai part
+
+
+
+
