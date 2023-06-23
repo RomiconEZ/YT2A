@@ -1,6 +1,6 @@
 import yt_dlp as youtube_dl
 from pytube import YouTube
-from src.youtube2text.youtube2text import Youtube2Text
+from src.youtube2text.youtube2text import Youtube2Text, merge_rows
 import re
 import pandas as pd
 from langdetect import detect
@@ -131,7 +131,11 @@ def extract_picture_from_yt_video(url:str,start_time:str = "00:00:00.000", nm_pc
 
 #extract_picture_from_yt_video(url, start_time = "00:03:00.000")
 
-get_subtitles_for_yt(url)
+#get_subtitles_for_yt(url)
+
+df = pd.read_csv("gen_sub.csv")
+df = merge_rows(df)
+df.to_csv("gen_sub_merged.csv", index=False)
 
 #openai part
 

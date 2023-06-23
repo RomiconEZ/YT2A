@@ -27,8 +27,34 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 import numpy as np
+import re
+def merge_rows(df):
+    # Функция для проверки наличия двух точек в конце строки
+    def has_two_or_more_dots(text):
+        return re.search(r'\.{2,}$', text) is not None
 
+    # Объединение строк и обновление времени
+    new_rows = []
+    current_row = None
 
+    for index, row in df.iterrows():
+        if current_row is None:
+            current_row = row
+        else:
+            if has_two_or_more_dots(current_row['text']):
+                current_row['text'] += ' ' + row['text']
+            else:
+                new_rows.append(current_row)
+                current_row = row
+
+    # Добавление последней строки
+    new_rows.append(current_row)
+
+    # Создание нового датафрейма с обновленными данными
+    new_df = pd.DataFrame(new_rows)
+    new_df.reset_index(drop=True, inplace=True)
+
+    return new_df
 def format_times(milliseconds_array):
     hours = milliseconds_array // (1000 * 60 * 60)
     minutes = (milliseconds_array // (1000 * 60)) % 60
@@ -354,11 +380,11 @@ class Youtube2Text:
         # split audio sound where silence is 700 miliseconds or more and get chunks
         chunks = split_on_silence(sound,
                                   # experiment with this value for your target audio file
-                                  min_silence_len=500,
+                                  min_silence_len=1000,
                                   # adjust this per requirement
                                   silence_thresh=sound.dBFS - 14,
                                   # keep the silence for 1 second, adjustable as well
-                                  keep_silence=500,
+                                  keep_silence=200,
                                   )
 
         whole_text = []
@@ -410,7 +436,7 @@ class Youtube2Text:
         df = pd.DataFrame({"text": whole_text, "file": audio_file, "start_time": start_time, "end_time": end_time})
         df["start_time"] = format_times(df["start_time"])
         df["end_time"] = format_times(df["end_time"])
-
+        df = merge_rows(df)
         return df
 
     def __removeinvalidcharacter(self, strin):
