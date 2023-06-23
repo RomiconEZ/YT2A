@@ -90,13 +90,43 @@ def parse_subtitles(subtitles_string):
     return df
 
 
-video_url = "https://www.youtube.com/watch?v=wddeVYrg-dk"
+url = "https://www.youtube.com/watch?v=wddeVYrg-dk"
 
-with youtube_dl.YoutubeDL({}) as ydl:
-    info_dict = ydl.extract_info(video_url, download=False)
-    title = info_dict['title']
-    formats = info_dict['requested_formats']
-print(info_dict)
+import subprocess
+
+start_time = "00:01:30.000"  # Время, на котором нужно извлечь кадр
+
+ydl_opts = {
+    "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",  # Определение формата видео
+    "quiet": True,  # Отключение вывода информации от youtube_dl
+}
+
+with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+    info_dict = ydl.extract_info(url, download=False)
+    formats = info_dict.get("formats", [])
+    mp4_formats = [format for format in formats if format.get("ext") == "mp4"]
+    video_url = None
+    max_quality = max(mp4_formats, key=lambda x: x["quality"])
+    video_url = max_quality["url"]
+    print(max_quality)
+
+if video_url:
+    ffmpeg_command = f'ffmpeg -ss {start_time} -i "{video_url}" -vframes 1 output.jpg'
+    subprocess.run(ffmpeg_command, shell=True)
+
+# if video_url:
+#     random_name = "output.mp4"  # Случайное имя файла для сохранения видео
+#     ffmpeg_command = f'ffmpeg -ss {start_time} -i "{video_url}" -t 1 -c copy "{random_name}"'
+#     subprocess.run(ffmpeg_command, shell=True)
+#
+#     # Извлечение кадра из сохраненного видео
+#     ffmpeg_command = f'ffmpeg -i "{random_name}" -ss 00:00:01 -vframes 1 output.jpg'
+#     subprocess.run(ffmpeg_command, shell=True)
+#
+#     # Удаление временного видео
+#     subprocess.run(f'rm "{random_name}"', shell=True)
+# else:
+#     print("Не удалось найти URL-адрес видео в подходящем формате.")
 
 
-#get_subtitles_for_yt(video_url)
+#get_subtitles_for_yt(url)
