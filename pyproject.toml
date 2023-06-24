@@ -23,6 +23,7 @@ openai-whisper = {git = "https://github.com/openai/whisper.git"}
 pillow = "^9.5.0"
 python-docx = "^0.8.11"
 yt-dlp = "^2023.6.22"
+python-dotenv = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core"]
