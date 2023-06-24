@@ -2,7 +2,7 @@ from typing import Any
 import yt_dlp as youtube_dl
 from pandas import DataFrame
 from pytube import YouTube
-from ML.yt2t import YT2T
+from yt2t import YT2T
 import dotenv
 import re
 import os
@@ -31,7 +31,6 @@ def get_lang_clean_name(lang_name: str) -> str:
         return lang_name.split(".", 1)[1]
     else:
         return lang_name
-
 
 def detect_language(text):
     lang = detect(text)
@@ -240,6 +239,8 @@ def create_doc(df: pd.DataFrame, name_of_doc, title, url):
     doc.add_heading(f"{title}", level=1)
     num_of_paragraph = 0
     for index, row in df.iterrows():
+        print(row['text'].strip()[0].isupper())
+        print(row['text'].strip()[0])
         if row['text'].strip()[0].isupper():
             num_of_paragraph +=1
             doc.add_heading(f"Параграф {num_of_paragraph}", level=2)
@@ -275,13 +276,13 @@ def create_doc(df: pd.DataFrame, name_of_doc, title, url):
 
 # extract_picture_from_yt_video(url, start_time = "00:01:00.000")
 
-# df, title = get_subtitles_for_yt(url)
-# df.to_csv('gen_sub.csv')
-# name_of_doc = 'output_doc.docx'
-# create_doc(df, name_of_doc, title, url)
+df, title = get_subtitles_for_yt(url)
+df.to_csv('gen_sub.csv')
+name_of_doc = 'output_doc.docx'
+create_doc(df, name_of_doc, title, url)
 
 # openai part
 
-df = pd.read_csv('gen_sub.csv')
-print(create_annotation(concatenate_text(df), 500))
+#df = pd.read_csv('ML/gen_sub.csv')
+#print(create_annotation(concatenate_text(df), 500))
 
