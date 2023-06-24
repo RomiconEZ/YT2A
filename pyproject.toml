@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "Backend"
+name = "yt2a"
 version = "0.1.0"
 description = ""
 authors = ["Roman Neronov <roman.nieronov@mail.ru>", "Ivan Platonov <platonov.ivan347@gmail.com>"]
