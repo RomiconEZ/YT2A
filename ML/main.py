@@ -139,14 +139,20 @@ def create_annotation(str, limit_word):
     if limit_tokens > 2600:
         limit_tokens = 2600
     message = f"Напиши аннотацию по данному тексту: {str}. В ответе верни только аннотацию."
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        temperature=0,
-        max_tokens=limit_tokens,
-        messages=[
-            {"role": "user",
-             "content": f"{message}"}]
-    )
+    response = None
+    while response is None:
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                temperature=0,
+                max_tokens=limit_tokens,
+                messages=[
+                    {"role": "user",
+                     "content": f"{message}"}]
+            )
+        except Exception as e:
+            limit_tokens -= 100
+            print("Произошла ошибка:", e)
     # print response
     content_value = response["choices"][0]["message"]["content"]
     return content_value
@@ -379,8 +385,7 @@ def create_doc(df: pd.DataFrame, url: str, word_limit_annotation: int = 1000):
     return name_of_doc_file, annonation
 
 
-def get_doc_from_url(url: str, word_limit_annotation: int=1000):
-
+def get_doc_from_url(url: str, word_limit_annotation: int = 1000):
     try:
         df = get_subtitles_for_yt(url)
         video_id = get_yt_vid_id(url)
@@ -393,7 +398,6 @@ def get_doc_from_url(url: str, word_limit_annotation: int=1000):
         return None
 
 
-name_of_doc_file, annonation = get_doc_from_url(url,word_limit_annotation=1000)
+name_of_doc_file, annonation = get_doc_from_url(url, word_limit_annotation=1000)
 print(annonation)
 print(name_of_doc_file)
-
