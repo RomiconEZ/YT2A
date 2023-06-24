@@ -3,7 +3,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from urllib.parse import urlparse, parse_qs
 
-from ML import extract_picture_from_yt_video
+from ML.main import extract_picture_from_yt_video
 
 BOT_TOKEN = "5827586590:AAEyJ6WLaTogaIgs7NT5fFAPgQZXXXV2_Ng"
 BOT_USERNAME = "@yt2abot"

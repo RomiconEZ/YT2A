@@ -237,7 +237,7 @@ def create_doc(df, name_of_doc, title, url):
     doc.add_heading(f"{title}", level=1)
     num_of_paragraph = 0
     for index, row in df.iterrows():
-        if row['text'].istitle():
+        if row['text'].strip()[0].isupper():
             num_of_paragraph +=1
             doc.add_heading(f"Параграф {num_of_paragraph}", level=2)
         doc.add_paragraph(row['text'])
