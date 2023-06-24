@@ -2,7 +2,7 @@ from typing import Any
 import yt_dlp as youtube_dl
 from pandas import DataFrame
 from pytube import YouTube
-from src.youtube2text.youtube2text import Youtube2Text, merge_rows
+from src.youtube2text.youtube2text import Youtube2Text
 import re
 from langdetect import detect
 import openai
@@ -11,10 +11,11 @@ from docx import Document
 from docx.shared import Inches
 from PIL import Image
 import pandas as pd
+import tiktoken
 
 openai.api_key = "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"
-url = "https://www.youtube.com/watch?v=YCvy8OFfyS4"
-
+url = "https://www.youtube.com/watch?v=gXYUsQcT7JI"
+encoding = tiktoken.get_encoding("cl100k_base")
 
 # a.ru - автоматически сгенерированные английские
 # ru - русский
@@ -53,23 +54,6 @@ def detect_lang_for_vid(dict_of_lang_subtitles, title):
     return detect_language(title)
 
 
-def remove_rows_without_letters_and_numbers(df: pd.DataFrame):
-    # Создаем пустой список для хранения индексов строк, которые нужно удалить
-    rows_to_remove = []
-
-    # Проходимся по каждой строке датафрейма
-    for index, row in df.iterrows():
-        text = row["text"]
-
-        # Проверяем, содержит ли поле "text" буквы, цифры или символы кириллицы
-        if not re.search('[a-zA-Zа-яА-Я0-9]', text):
-            rows_to_remove.append(index)
-
-    # Удаляем строки из датафрейма по полученным индексам
-    df = df.drop(rows_to_remove)
-
-    return df
-
 def set_capital(df: pd.DataFrame):
     prev_text = "##"
     for index, row in df.iterrows():
@@ -86,22 +70,79 @@ def set_capital(df: pd.DataFrame):
             if len(prev_word) == 1:
                 if prev_word != '##':
                     df.at[index, 'text'] += ' '
-                
+
                 df.at[index, 'text'] += word
                 prev_word = word
                 continue
             if prev_word[-1] in ['.', '?', '!'] and prev_word[-2] != '.':
                 word = word.capitalize()
-            
+
             if prev_word != '##':
                 df.at[index, 'text'] += ' '
-            
+
             df.at[index, 'text'] += word
 
             prev_word = word
         prev_text = df.at[index, 'text']
-        print(prev_text)
     return df
+
+def concatenate_text(df):
+    concatenated_text = ""
+
+    # Проходимся по каждой строке датафрейма
+    for index, row in df.iterrows():
+        text = row["text"]
+
+        # Удаляем все вхождения ".." из текста
+        cleaned_text = text.replace("..", "")
+
+        # Объединяем очищенный текст с предыдущими объединенными строками
+        concatenated_text += cleaned_text
+
+    # Возвращаем объединенный текст в виде строки
+    return concatenated_text
+
+
+def remove_rows_without_letters_and_numbers(df):
+    # Создаем пустой список для хранения индексов строк, которые нужно удалить
+    rows_to_remove = []
+
+    # Проходимся по каждой строке датафрейма
+    for index, row in df.iterrows():
+        text = row["text"]
+
+        # Проверяем, содержит ли поле "text" буквы, цифры или символы кириллицы
+        if not re.search('[a-zA-Zа-яА-Я0-9]', text):
+            rows_to_remove.append(index)
+
+    # Удаляем строки из датафрейма по полученным индексам
+    df = df.drop(rows_to_remove)
+
+    return df
+
+
+def create_annotation(str, limit_word):
+    # encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+    # tokens = encoding.encode(str)[:2000]
+    # comp_str = encoding.decode(tokens)
+    # print(comp_str)
+
+    # 2.8 - среднее увеличение количества токенов по сравнение с количеством слов
+    limit_tokens = round(limit_word * 2.8)
+    if limit_tokens > 2600:
+        limit_tokens = 2600
+    message = f"Напиши аннотацию по данному тексту: {str}. В ответе верни только аннотацию."
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        temperature=0,
+        max_tokens=limit_tokens,
+        messages=[
+                 {"role": "user",
+                  "content": f"{message}"}]
+    )
+    # print response
+    content_value = response["choices"][0]["message"]["content"]
+    return content_value
 
 
 def get_subtitles_for_yt(link: str) -> tuple[DataFrame, str] | tuple[Any, str]:
@@ -142,6 +183,7 @@ def get_subtitles_for_yt(link: str) -> tuple[DataFrame, str] | tuple[Any, str]:
                 df = generate_subtitles(lang=lang_for_vid, yt=yt)
 
         df = remove_rows_without_letters_and_numbers(df)
+
         df = set_capital(df)
 
         return df, title
@@ -193,8 +235,11 @@ def create_doc(df, name_of_doc, title, url):
     doc = Document()
     # Добавление текстового содержимого из датафрейма в документ
     doc.add_heading(f"{title}", level=1)
+    num_of_paragraph = 0
     for index, row in df.iterrows():
-        doc.add_heading(f"Параграф {index + 1}", level=2)
+        if row['text'].istitle():
+            num_of_paragraph +=1
+            doc.add_heading(f"Параграф {num_of_paragraph}", level=2)
         doc.add_paragraph(row['text'])
         # Добавление изображений в документ
         extract_picture_from_yt_video(url, start_time=row["start_time"])
@@ -225,7 +270,7 @@ def create_doc(df, name_of_doc, title, url):
     doc.save(name_of_doc)
 
 
-#extract_picture_from_yt_video(url, start_time = "00:01:00.000")
+# extract_picture_from_yt_video(url, start_time = "00:01:00.000")
 
 df, title = get_subtitles_for_yt(url)
 df.to_csv('gen_sub.csv')
@@ -233,3 +278,7 @@ name_of_doc = 'output_doc.docx'
 create_doc(df, name_of_doc, title, url)
 
 # openai part
+
+#df = pd.read_csv('gen_sub.csv')
+#print(create_annotation(concatenate_text(df), 500))
+

@@ -27,34 +27,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 import numpy as np
-import re
-def merge_rows(df):
-    # Функция для проверки наличия двух точек в конце строки
-    def has_two_or_more_dots(text):
-        return re.search(r'\.{2,}$', text) is not None
 
-    # Объединение строк и обновление времени
-    new_rows = []
-    current_row = None
 
-    for index, row in df.iterrows():
-        if current_row is None:
-            current_row = row
-        else:
-            if has_two_or_more_dots(current_row['text']):
-                current_row['text'] += ' ' + row['text']
-            else:
-                new_rows.append(current_row)
-                current_row = row
-
-    # Добавление последней строки
-    new_rows.append(current_row)
-
-    # Создание нового датафрейма с обновленными данными
-    new_df = pd.DataFrame(new_rows)
-    new_df.reset_index(drop=True, inplace=True)
-
-    return new_df
 def format_times(milliseconds_array):
     hours = milliseconds_array // (1000 * 60 * 60)
     minutes = (milliseconds_array // (1000 * 60)) % 60
