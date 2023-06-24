@@ -53,7 +53,7 @@ def detect_lang_for_vid(dict_of_lang_subtitles, title):
     return detect_language(title)
 
 
-def remove_rows_without_letters_and_numbers(df):
+def remove_rows_without_letters_and_numbers(df: pd.DataFrame):
     # Создаем пустой список для хранения индексов строк, которые нужно удалить
     rows_to_remove = []
 
@@ -68,6 +68,39 @@ def remove_rows_without_letters_and_numbers(df):
     # Удаляем строки из датафрейма по полученным индексам
     df = df.drop(rows_to_remove)
 
+    return df
+
+def set_capital(df: pd.DataFrame):
+    prev_text = "##"
+    for index, row in df.iterrows():
+        text: str = row['text']
+        if len(prev_text) == 1:
+            continue
+        text = text.strip()
+        if prev_text[-1] in ['.', '?', '!'] and prev_text[-2] != '.':
+            text = text.capitalize()
+
+        prev_word = "##"
+        df.at[index, 'text'] = ""
+        for word in text.split(' '):
+            if len(prev_word) == 1:
+                if prev_word != '##':
+                    df.at[index, 'text'] += ' '
+                
+                df.at[index, 'text'] += word
+                prev_word = word
+                continue
+            if prev_word[-1] in ['.', '?', '!'] and prev_word[-2] != '.':
+                word = word.capitalize()
+            
+            if prev_word != '##':
+                df.at[index, 'text'] += ' '
+            
+            df.at[index, 'text'] += word
+
+            prev_word = word
+        prev_text = df.at[index, 'text']
+        print(prev_text)
     return df
 
 
@@ -109,6 +142,7 @@ def get_subtitles_for_yt(link: str) -> tuple[DataFrame, str] | tuple[Any, str]:
                 df = generate_subtitles(lang=lang_for_vid, yt=yt)
 
         df = remove_rows_without_letters_and_numbers(df)
+        df = set_capital(df)
 
         return df, title
 
