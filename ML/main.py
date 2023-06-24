@@ -3,7 +3,7 @@ from urllib.parse import urlparse, parse_qs
 import docx
 import yt_dlp as youtube_dl
 from pytube import YouTube
-from yt2t import YT2T
+from .yt2t import YT2T
 import dotenv
 import re
 import os
@@ -79,9 +79,7 @@ def set_capital_and_remove_punctuation_marks(df: pd.DataFrame):
             if len(prev_word) == 1:
                 if prev_word != '##':
                     df.at[index, 'text'] += ' '
-                if word[-1] == '.' and word[-2] == '.':
-                    word = word[:-2]
-                elif word[-1] == '.' and word[-2] == ',':
+                if word[-1] == '.' and word[-2] in ['?', '!']:
                     word = word[:-1]
                 df.at[index, 'text'] += word
                 prev_word = word
@@ -92,9 +90,7 @@ def set_capital_and_remove_punctuation_marks(df: pd.DataFrame):
             if prev_word != '##':
                 df.at[index, 'text'] += ' '
 
-            if word[-1] == '.' and word[-2] == '.':
-                word = word[:-2]
-            elif word[-1] == '.' and word[-2] == ',':
+            if word[-1] == '.' and word[-2] in ['?', '!']:
                 word = word[:-1]
             df.at[index, 'text'] += word
 
@@ -150,7 +146,7 @@ def create_annotation(str, limit_word):
     # This model's maximum context length is 4097 tokens. - error extend len of message
     limit_tokens = round(limit_word * 2.8)
     if limit_tokens > 2600:
-        limit_tokens = 3000
+        limit_tokens = 2600
     message = f"Напиши аннотацию по данному тексту: {str}. В ответе верни только аннотацию."
     response = None
     len_ext_error = "This model's maximum context length"
@@ -165,10 +161,10 @@ def create_annotation(str, limit_word):
                     {"role": "user",
                      "content": f"{message}"}]
             )
-        except Exception as e:
-            if len_ext_error in e:
+        except openai.InvalidRequestError as e:
+            if len_ext_error in e._message:
                 limit_tokens -= 200
-            if lim_num_mes_error in e:
+            if lim_num_mes_error in e._message:
                 time.sleep(60)
             print("Произошла ошибка:", e)
     # print response
@@ -457,6 +453,6 @@ def form_paragraph_for_gen(df: pd.DataFrame):
 
     return paragraph_df
 
-df = pd.read_csv('data/subtitle/_If-iQyL4n8.csv')
+df = pd.read_csv('data/subtitle/V6G3sPbgubY.csv')
 df_test = form_paragraph_for_gen(df)
 df_test.to_csv("test_df.csv")

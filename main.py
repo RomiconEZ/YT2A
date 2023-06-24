@@ -58,7 +58,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         case State.wait_for_article_length:
             article_length = update.message.text
 
-            if article_length.isnumeric():
+            if article_length.isnumeric() or article_length[1:].isnumeric() and article_length[0] == '-':
                 article_length = int(article_length)
                 if article_length == -1:
                     context.user_data['annotation_length'] = 150000
@@ -75,7 +75,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         case State.wait_for_annotation_length:
             annotation_length = update.message.text
 
-            if annotation_length.isnumeric():
+            if annotation_length.isnumeric() or annotation_length[1:].isnumeric() and annotation_length[0] == '-':
                 annotation_length = int(annotation_length)
                 if annotation_length == -1:
                     context.user_data['annotation_length'] = 150000
