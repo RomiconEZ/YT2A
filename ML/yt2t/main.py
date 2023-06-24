@@ -260,11 +260,7 @@ class YT2T:
             stream_url = yt.streams[0].url
 
             video = self.get_yt_video(yt)
-            print("--------------------------------")
-            print(type(video))
-            # video.download(filename="video.mp4")
 
-            print("--------------------------------")
             acodec = 'pcm_s16le' if audioformat == 'wav' else audioformat
 
             logger.info(f"Audio at sample rate {audiosamplingrate}")

@@ -1,4 +1,6 @@
 from typing import Any
+
+import docx
 import yt_dlp as youtube_dl
 from pandas import DataFrame
 from pytube import YouTube
@@ -20,6 +22,7 @@ openai.api_key = os.environ.get("API_KEY")
 url = "https://www.youtube.com/watch?v=gXYUsQcT7JI"
 encoding = tiktoken.get_encoding("cl100k_base")
 
+
 # a.ru - автоматически сгенерированные английские
 # ru - русский
 # en - английский
@@ -31,6 +34,7 @@ def get_lang_clean_name(lang_name: str) -> str:
         return lang_name.split(".", 1)[1]
     else:
         return lang_name
+
 
 def detect_language(text):
     lang = detect(text)
@@ -61,14 +65,16 @@ def set_capital(df: pd.DataFrame):
     for index, row in df.iterrows():
         text: str = row['text']
         if len(prev_text) == 1:
+            prev_text = text
             continue
         text = text.strip()
-        if prev_text == "##" or prev_text[-1] in ['.', '?', '!'] and prev_text[-2] not in ['.', '?', '!', ',']:
+        if prev_text == '##' or prev_text[-1] in ['.', '?', '!'] and prev_text[-2] not in ['.', '?', '!', ',']:
             text = text.capitalize()
 
         prev_word = "##"
         df.at[index, 'text'] = ""
         for word in text.split(' '):
+            word = word.strip()
             if len(prev_word) == 1:
                 if prev_word != '##':
                     df.at[index, 'text'] += ' '
@@ -76,7 +82,7 @@ def set_capital(df: pd.DataFrame):
                 df.at[index, 'text'] += word
                 prev_word = word
                 continue
-            if prev_word == "##" or prev_word[-1] in ['.', '?', '!'] and prev_word[-2] not in ['.', '?', '!', ',']:
+            if prev_word[-1] in ['.', '?', '!'] and prev_word[-2] not in ['.', '?', '!', ',']:
                 word = word.capitalize()
 
             if prev_word != '##':
@@ -87,6 +93,7 @@ def set_capital(df: pd.DataFrame):
             prev_word = word
         prev_text = df.at[index, 'text']
     return df
+
 
 def concatenate_text(df):
     concatenated_text = ""
@@ -139,8 +146,8 @@ def create_annotation(str, limit_word):
         temperature=0,
         max_tokens=limit_tokens,
         messages=[
-                 {"role": "user",
-                  "content": f"{message}"}]
+            {"role": "user",
+             "content": f"{message}"}]
     )
     # print response
     content_value = response["choices"][0]["message"]["content"]
@@ -222,7 +229,6 @@ def extract_picture_from_yt_video(url: str, start_time: str = "00:00:00.000", nm
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         info_dict = ydl.extract_info(url, download=False)
         formats = info_dict.get("formats", [])
-        print(formats)
         mp4_formats = [format for format in formats if format.get("ext") == "mp4"]
         max_quality = max(mp4_formats, key=lambda x: x["quality"])
         video_url = max_quality["url"]
@@ -231,6 +237,60 @@ def extract_picture_from_yt_video(url: str, start_time: str = "00:00:00.000", nm
         ffmpeg_command = f'ffmpeg -ss {start_time} -i "{video_url}" -frames:v 1 -update 1 -y {nm_pct_with_ext}'
         subprocess.run(ffmpeg_command, shell=True)
 
+import docx.opc.constants
+import docx.oxml
+def add_hyperlink(paragraph, url, text, color, underline):
+    """
+    A function that places a hyperlink within a paragraph object.
+
+    :param paragraph: The paragraph we are adding the hyperlink to.
+    :param url: A string containing the required url
+    :param text: The text displayed for the url
+    :return: The hyperlink object
+    """
+
+    # This gets access to the document.xml.rels file and gets a new relation id value
+    part = paragraph.part
+    r_id = part.relate_to(url, docx.opc.constants.RELATIONSHIP_TYPE.HYPERLINK, is_external=True)
+
+    # Create the w:hyperlink tag and add needed values
+    hyperlink = docx.oxml.shared.OxmlElement('w:hyperlink')
+    hyperlink.set(docx.oxml.shared.qn('r:id'), r_id, )
+
+    # Create a w:r element
+    new_run = docx.oxml.shared.OxmlElement('w:r')
+
+    # Create a new w:rPr element
+    rPr = docx.oxml.shared.OxmlElement('w:rPr')
+
+    # Add color if it is given
+    if not color is None:
+        c = docx.oxml.shared.OxmlElement('w:color')
+        c.set(docx.oxml.shared.qn('w:val'), color)
+        rPr.append(c)
+
+    # Remove underlining if it is requested
+    if not underline:
+        u = docx.oxml.shared.OxmlElement('w:u')
+        u.set(docx.oxml.shared.qn('w:val'), 'none')
+        rPr.append(u)
+
+    # Join all the xml elements together add add the required text to the w:r element
+    new_run.append(rPr)
+    new_run.text = text
+    hyperlink.append(new_run)
+
+    paragraph._p.append(hyperlink)
+
+    return hyperlink
+
+def get_seconds(time_str)->int:
+    # Разделение строки на составляющие
+    hours, minutes, seconds = time_str.split(':')
+    # Извлечение значения секунд и преобразование в целое число
+    seconds = int(seconds.split('.')[0])
+
+    return seconds
 
 def create_doc(df: pd.DataFrame, name_of_doc, title, url):
     # Создание нового документа
@@ -239,11 +299,18 @@ def create_doc(df: pd.DataFrame, name_of_doc, title, url):
     doc.add_heading(f"{title}", level=1)
     num_of_paragraph = 0
     for index, row in df.iterrows():
-        print(row['text'].strip()[0].isupper())
-        print(row['text'].strip()[0])
+
         if row['text'].strip()[0].isupper():
-            num_of_paragraph +=1
+            num_of_paragraph += 1
             doc.add_heading(f"Параграф {num_of_paragraph}", level=2)
+
+        p = doc.add_paragraph("")
+
+        time_code = get_seconds(row['start_time'])
+        link = url+f"&t={time_code}"
+
+        add_hyperlink(p, link, row['start_time'], 'FF8822', True)
+
         doc.add_paragraph(row['text'])
         # Добавление изображений в документ
         extract_picture_from_yt_video(url, start_time=row["start_time"])
@@ -268,7 +335,7 @@ def create_doc(df: pd.DataFrame, name_of_doc, title, url):
         doc.add_picture(temp_image_path, width=desired_width, height=desired_height)
 
         # Разделитель между разделами документа
-        doc.add_page_break()
+        # doc.add_page_break()
 
     # Сохранение документа
     doc.save(name_of_doc)
@@ -276,13 +343,15 @@ def create_doc(df: pd.DataFrame, name_of_doc, title, url):
 
 # extract_picture_from_yt_video(url, start_time = "00:01:00.000")
 
-df, title = get_subtitles_for_yt(url)
-df.to_csv('gen_sub.csv')
+#df, title = get_subtitles_for_yt(url)
+#df.to_csv('gen_sub.csv')
+
+title = "TEXT"
+df = pd.read_csv('gen_sub.csv')
 name_of_doc = 'output_doc.docx'
 create_doc(df, name_of_doc, title, url)
 
 # openai part
 
-#df = pd.read_csv('ML/gen_sub.csv')
-#print(create_annotation(concatenate_text(df), 500))
-
+# df = pd.read_csv('ML/gen_sub.csv')
+# print(create_annotation(concatenate_text(df), 500))
