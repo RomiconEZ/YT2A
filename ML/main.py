@@ -58,11 +58,12 @@ def detect_lang_for_vid(dict_of_lang_subtitles, title):
     return detect_language(title)
 
 
-def set_capital(df: pd.DataFrame):
+def set_capital_and_remove_punctuation_marks(df: pd.DataFrame):
     prev_text = "##"
     for index, row in df.iterrows():
         text: str = row['text']
         if len(prev_text) == 1:
+            prev_text = text
             prev_text = text
             continue
         text = text.strip()
@@ -73,10 +74,14 @@ def set_capital(df: pd.DataFrame):
         df.at[index, 'text'] = ""
         for word in text.split(' '):
             word = word.strip()
+            word = word.strip()
             if len(prev_word) == 1:
                 if prev_word != '##':
                     df.at[index, 'text'] += ' '
-
+                if word[-1] == '.' and word[-2] == '.':
+                    word = word[:-2]
+                elif word[-1] == '.' and word[-2] == ',':
+                    word = word[:-1]
                 df.at[index, 'text'] += word
                 prev_word = word
                 continue
@@ -86,6 +91,10 @@ def set_capital(df: pd.DataFrame):
             if prev_word != '##':
                 df.at[index, 'text'] += ' '
 
+            if word[-1] == '.' and word[-2] == '.':
+                word = word[:-2]
+            elif word[-1] == '.' and word[-2] == ',':
+                word = word[:-1]
             df.at[index, 'text'] += word
 
             prev_word = word
@@ -202,7 +211,7 @@ def get_subtitles_for_yt(link: str):
 
         df = remove_rows_without_letters_and_numbers(df)
 
-        df = set_capital(df)
+        df = set_capital_and_remove_punctuation_marks(df)
 
         return df
 
