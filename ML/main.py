@@ -3,7 +3,7 @@ from urllib.parse import urlparse, parse_qs
 import docx
 import yt_dlp as youtube_dl
 from pytube import YouTube
-from yt2t import YT2T
+from .yt2t import YT2T
 import dotenv
 import re
 import os
@@ -165,10 +165,10 @@ def create_annotation(str, limit_word):
                     {"role": "user",
                      "content": f"{message}"}]
             )
-        except Exception as e:
-            if len_ext_error in e:
+        except openai.InvalidRequestError as e:
+            if len_ext_error in e._message:
                 limit_tokens -= 200
-            if lim_num_mes_error in e:
+            if lim_num_mes_error in e._message:
                 time.sleep(60)
             print("Произошла ошибка:", e)
     # print response
@@ -416,6 +416,6 @@ def get_doc_from_url(url: str, word_limit_annotation: int = 1000):
         return None
 
 
-name_of_doc_file, annonation = get_doc_from_url(url, word_limit_annotation=1000)
-print(annonation)
-print(name_of_doc_file)
+# name_of_doc_file, annonation = get_doc_from_url(url,word_limit_annotation=1000)
+# print(annonation)
+# print(name_of_doc_file)
