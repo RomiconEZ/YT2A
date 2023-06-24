@@ -198,18 +198,6 @@ def get_subtitles_for_yt(link: str):
             if lang in dict_of_lang_subtitles:
                 subtitles = yt.captions[lang].generate_srt_captions()
 
-                # response = openai.ChatCompletion.create(
-                #     model="gpt-3.5-turbo",
-                #     messages=[
-                #         {"role": "user",
-                #          "content": f"Based on the subtitles to the video, for each of which there is a number, start time, end time and text. Generate text divided into chapters from subtitles without changing their sequelity and meaning, chapters no more than 10, and specify the start time and the end date for chapters. You cannot change the text too much. Correct the subtitle errors. In the next message I will send the subtitles from which to compose the text. Give me the answer clearly in the format in which you get the subtitles"},
-                #         {"role": "user",
-                #          "content": f"{subtitles}"}
-                #     ]
-                # )
-                # # print response
-                # content_value = response["choices"][0]["message"]["content"]
-                # print(content_value)
 
                 df = parse_subtitles(subtitles)
                 break
@@ -410,13 +398,13 @@ def get_doc_from_url(url: str, word_limit_annotation: int = 1000):
         path = "data/subtitle/" + video_id + ".csv"
         df.to_csv(path)
         name_of_doc_file, annonation = create_doc(df, url, word_limit_annotation)
-        return name_of_doc_file, annonation
+        return name_of_doc_file, annonation, df
     except Exception as e:
         print("Произошла ошибка:", e)
         return None
 
 
-#name_of_doc_file, annonation = get_doc_from_url(url, word_limit_annotation=1000)
+#name_of_doc_file, annonation, df_subtitle = get_doc_from_url(url, word_limit_annotation=1000)
 #print(annonation)
 #print(name_of_doc_file)
 
@@ -457,6 +445,8 @@ def form_paragraph_for_gen(df: pd.DataFrame):
 
     return paragraph_df
 
-df = pd.read_csv('data/subtitle/_If-iQyL4n8.csv')
-df_test = form_paragraph_for_gen(df)
-df_test.to_csv("test_df.csv")
+def gen_text_based_on_paragraph(df_subtitle:pd.DataFrame):
+    df_form_paragraph = form_paragraph_for_gen(df_subtitle)
+    for index, row in df_form_paragraph.iterrows():
+
+
