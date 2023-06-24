@@ -1,9 +1,6 @@
-from typing import Any
 from urllib.parse import urlparse, parse_qs
-
 import docx
 import yt_dlp as youtube_dl
-from pandas import DataFrame
 from pytube import YouTube
 from yt2t import YT2T
 import dotenv
