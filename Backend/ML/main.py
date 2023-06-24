@@ -68,6 +68,8 @@ def remove_rows_without_letters_and_numbers(df):
     # Удаляем строки из датафрейма по полученным индексам
     df = df.drop(rows_to_remove)
 
+    return df
+
 
 def get_subtitles_for_yt(link: str) -> tuple[DataFrame, str] | tuple[Any, str]:
     """
@@ -106,7 +108,8 @@ def get_subtitles_for_yt(link: str) -> tuple[DataFrame, str] | tuple[Any, str]:
             if lang_for_vid is not None:
                 df = generate_subtitles(lang=lang_for_vid, yt=yt)
 
-        remove_rows_without_letters_and_numbers(df)
+        df = remove_rows_without_letters_and_numbers(df)
+
         return df, title
 
     except Exception as e:
