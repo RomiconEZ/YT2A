@@ -1,12 +1,11 @@
+import dotenv
+import os
 import re
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from urllib.parse import urlparse, parse_qs
 
-from ML import extract_picture_from_yt_video
-
-BOT_TOKEN = "5827586590:AAEyJ6WLaTogaIgs7NT5fFAPgQZXXXV2_Ng"
-BOT_USERNAME = "@yt2abot"
+from ML import create_doc, get_subtitles_for_yt
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привет! Чтобы получить статью по youtube видео, отправь мне ссылку на него!")
@@ -30,14 +29,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = parse_qs(url_data.query)
         if "v" in query.keys():
             video_id = query["v"][0]
+            video_url = f'https://www.youtube.com/watch?v={video_id}'
 
-            extract_picture_from_yt_video(f'https://www.youtube.com/watch?v={video_id}', start_time = "00:01:00.000")
-            await update.message.reply_animation("output.jpg", caption="Держи залупу")
+            df, title = get_subtitles_for_yt(video_url)
+            df.to_csv('gen_sub.csv')
+            name_of_doc = 'output_doc.docx'
+            create_doc(df, name_of_doc, title, video_url)
+            await update.message.reply_document("output_doc.docx", caption="Вот!")
             return
 
         video_id = url_data.geturl().split('/')[-1]
-        extract_picture_from_yt_video(f'https://www.youtube.com/watch?v={video_id}', start_time = "00:01:00.000")
-        await update.message.reply_animation("output.jpg", caption="Держи залупу")
+        video_url = f'https://www.youtube.com/watch?v={video_id}'
+
+        df, title = get_subtitles_for_yt(video_url)
+        df.to_csv('gen_sub.csv')
+        name_of_doc = 'output_doc.docx'
+        create_doc(df, name_of_doc, title, video_url)
+        await update.message.reply_document("output_doc.docx", caption="Вот!")
 
 
     else:
@@ -47,6 +55,10 @@ async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f'Update {update} caused error {context.error}')
 
 if __name__ == '__main__':
+    dotenv.load_dotenv(".env")
+    BOT_TOKEN = os.environ.get("BOT_TOKEN")
+    BOT_USERNAME = os.environ.get("BOT_USERNAME")
+    print(BOT_TOKEN)
     app = Application.builder().token(BOT_TOKEN).build()
 
     # Commands
@@ -59,5 +71,5 @@ if __name__ == '__main__':
     # Errors
     app.add_error_handler(error)
 
-    print('Polling...')
+    print('Загрузка...')
     app.run_polling(poll_interval=3)

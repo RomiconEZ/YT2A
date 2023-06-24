@@ -2,7 +2,7 @@ from typing import Any
 import yt_dlp as youtube_dl
 from pandas import DataFrame
 from pytube import YouTube
-from src.youtube2text.youtube2text import Youtube2Text
+from ML.yt2t import YT2T
 import re
 from langdetect import detect
 import openai
@@ -41,7 +41,7 @@ def detect_language(text):
 
 
 def generate_subtitles(lang, yt=None, url=None):
-    converter = Youtube2Text()
+    converter = YT2T()
     df = converter.url2text(urlpath=url, audioformat="flac", yt=yt, lang=lang)
     return df
 
@@ -61,7 +61,7 @@ def set_capital(df: pd.DataFrame):
         if len(prev_text) == 1:
             continue
         text = text.strip()
-        if prev_text[-1] in ['.', '?', '!'] and prev_text[-2] != '.':
+        if prev_text == "##" or prev_text[-1] in ['.', '?', '!'] and prev_text[-2] not in ['.', '?', '!', ',']:
             text = text.capitalize()
 
         prev_word = "##"
@@ -74,7 +74,7 @@ def set_capital(df: pd.DataFrame):
                 df.at[index, 'text'] += word
                 prev_word = word
                 continue
-            if prev_word[-1] in ['.', '?', '!'] and prev_word[-2] != '.':
+            if prev_word == "##" or prev_word[-1] in ['.', '?', '!'] and prev_word[-2] not in ['.', '?', '!', ',']:
                 word = word.capitalize()
 
             if prev_word != '##':
@@ -230,7 +230,7 @@ def extract_picture_from_yt_video(url: str, start_time: str = "00:00:00.000", nm
         subprocess.run(ffmpeg_command, shell=True)
 
 
-def create_doc(df, name_of_doc, title, url):
+def create_doc(df: pd.DataFrame, name_of_doc, title, url):
     # Создание нового документа
     doc = Document()
     # Добавление текстового содержимого из датафрейма в документ
@@ -272,10 +272,10 @@ def create_doc(df, name_of_doc, title, url):
 
 # extract_picture_from_yt_video(url, start_time = "00:01:00.000")
 
-df, title = get_subtitles_for_yt(url)
-df.to_csv('gen_sub.csv')
-name_of_doc = 'output_doc.docx'
-create_doc(df, name_of_doc, title, url)
+# df, title = get_subtitles_for_yt(url)
+# df.to_csv('gen_sub.csv')
+# name_of_doc = 'output_doc.docx'
+# create_doc(df, name_of_doc, title, url)
 
 # openai part
 

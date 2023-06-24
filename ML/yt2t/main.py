@@ -27,8 +27,34 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 import numpy as np
+import re
+def merge_rows(df):
+    # Функция для проверки наличия двух точек в конце строки
+    def has_two_or_more_dots(text):
+        return re.search(r'\.{2,}$', text) is not None
 
+    # Объединение строк и обновление времени
+    new_rows = []
+    current_row = None
 
+    for index, row in df.iterrows():
+        if current_row is None:
+            current_row = row
+        else:
+            if has_two_or_more_dots(current_row['text']):
+                current_row['text'] += ' ' + row['text']
+            else:
+                new_rows.append(current_row)
+                current_row = row
+
+    # Добавление последней строки
+    new_rows.append(current_row)
+
+    # Создание нового датафрейма с обновленными данными
+    new_df = pd.DataFrame(new_rows)
+    new_df.reset_index(drop=True, inplace=True)
+
+    return new_df
 def format_times(milliseconds_array):
     hours = milliseconds_array // (1000 * 60 * 60)
     minutes = (milliseconds_array // (1000 * 60)) % 60
@@ -96,15 +122,15 @@ def split_on_silence(audio_segment, min_silence_len=1000, silence_thresh=-16, ke
     ]
 
 
-class Youtube2Text:
-    '''Youtube2Text Class to translates audio to text file'''
+class YT2T:
+    '''YT2T Class to translates audio to text file'''
 
     __audioextension = ["flac", "wav"]
     __textextension = "csv"
 
     def __init__(self, outputpath=None):
         '''
-        Youtube2Text constructor
+        YT2T constructor
 
         Parameters:
             outputpath (str): Output directory to save audio and csv files
@@ -113,7 +139,7 @@ class Youtube2Text:
         if outputpath is None:
             outputpath = os.path.join(os.path.expanduser('~'), 'YT2A')
 
-        logger.info(f"Youtube2Text content file saved at path {outputpath}")
+        logger.info(f"YT2T content file saved at path {outputpath}")
 
         # create a speech recognition object
         self.recognizer = sr.Recognizer()
