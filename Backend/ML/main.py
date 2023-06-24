@@ -53,6 +53,22 @@ def detect_lang_for_vid(dict_of_lang_subtitles, title):
     return detect_language(title)
 
 
+def remove_rows_without_letters_and_numbers(df):
+    # Создаем пустой список для хранения индексов строк, которые нужно удалить
+    rows_to_remove = []
+
+    # Проходимся по каждой строке датафрейма
+    for index, row in df.iterrows():
+        text = row["text"]
+
+        # Проверяем, содержит ли поле "text" буквы, цифры или символы кириллицы
+        if not re.search('[a-zA-Zа-яА-Я0-9]', text):
+            rows_to_remove.append(index)
+
+    # Удаляем строки из датафрейма по полученным индексам
+    df = df.drop(rows_to_remove)
+
+
 def get_subtitles_for_yt(link: str) -> tuple[DataFrame, str] | tuple[Any, str]:
     """
     Получение субтитров для yt видео
@@ -90,6 +106,7 @@ def get_subtitles_for_yt(link: str) -> tuple[DataFrame, str] | tuple[Any, str]:
             if lang_for_vid is not None:
                 df = generate_subtitles(lang=lang_for_vid, yt=yt)
 
+        remove_rows_without_letters_and_numbers(df)
         return df, title
 
     except Exception as e:
@@ -171,10 +188,11 @@ def create_doc(df, name_of_doc, title, url):
     doc.save(name_of_doc)
 
 
-extract_picture_from_yt_video(url, start_time = "00:01:00.000")
+#extract_picture_from_yt_video(url, start_time = "00:01:00.000")
 
-# df, title = get_subtitles_for_yt(url)
-# name_of_doc = 'output_doc.docx'
-# create_doc(df, name_of_doc, title, url)
+df, title = get_subtitles_for_yt(url)
+df.to_csv('gen_sub.csv')
+name_of_doc = 'output_doc.docx'
+create_doc(df, name_of_doc, title, url)
 
 # openai part
