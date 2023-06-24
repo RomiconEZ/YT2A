@@ -2,7 +2,7 @@
 name = "Backend"
 version = "0.1.0"
 description = ""
-authors = ["Roman Neronov <roman.nieronov@mail.ru>", "Ivan Platonov <platonov.ivan@gmail.com>"]
+authors = ["Roman Neronov <roman.nieronov@mail.ru>", "Ivan Platonov <platonov.ivan347@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
@@ -14,14 +14,15 @@ pandas = "^1.1.5"
 ffmpeg-python = "^0.2.0"
 soundfile = "<= 0.10.3post1"
 pytube = {git = "https://github.com/RomiconEZ/pytube-double-fixed-LIOCOCN.git"}
-fastapi = "^0.97.0"
 pydantic = "^1.10.9"
 langdetect = "^1.0.9"
-youtube-dl = "^2021.12.17"
 openai = "^0.27.8"
+python-telegram-bot = "^20.3"
+torch = "^2.0.1"
 openai-whisper = {git = "https://github.com/openai/whisper.git"}
 pillow = "^9.5.0"
 python-docx = "^0.8.11"
+yt-dlp = "^2023.6.22"
 
 [build-system]
 requires = ["poetry-core"]

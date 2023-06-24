@@ -2,7 +2,7 @@ from typing import Any
 import yt_dlp as youtube_dl
 from pandas import DataFrame
 from pytube import YouTube
-from src.youtube2text.youtube2text import Youtube2Text, merge_rows
+from .src.youtube2text.youtube2text import Youtube2Text, merge_rows
 import re
 from langdetect import detect
 import openai
@@ -190,9 +190,9 @@ def create_doc(df, name_of_doc, title, url):
 
 #extract_picture_from_yt_video(url, start_time = "00:01:00.000")
 
-df, title = get_subtitles_for_yt(url)
-df.to_csv('gen_sub.csv')
-name_of_doc = 'output_doc.docx'
-create_doc(df, name_of_doc, title, url)
+# df, title = get_subtitles_for_yt(url)
+# df.to_csv('gen_sub.csv')
+# name_of_doc = 'output_doc.docx'
+# create_doc(df, name_of_doc, title, url)
 
 # openai part
