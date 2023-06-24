@@ -1,3 +1,4 @@
+import time
 from urllib.parse import urlparse, parse_qs
 import docx
 import yt_dlp as youtube_dl
@@ -144,12 +145,17 @@ def create_annotation(str, limit_word):
     # print(comp_str)
 
     # 2.8 - среднее увеличение количества токенов по сравнение с количеством слов
+
+    # Rate limit reached - error limit num of message
+    # This model's maximum context length is 4097 tokens. - error extend len of message
     limit_tokens = round(limit_word * 2.8)
     if limit_tokens > 2600:
         limit_tokens = 2600
     message = f"Напиши аннотацию по данному тексту: {str}. В ответе верни только аннотацию."
     response = None
-    while response is None:
+    len_ext_error = "This model's maximum context length"
+    lim_num_mes_error = "Rate limit reached"
+    while response is None and limit_tokens > 0:
         try:
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
@@ -160,7 +166,10 @@ def create_annotation(str, limit_word):
                      "content": f"{message}"}]
             )
         except Exception as e:
-            limit_tokens -= 100
+            if len_ext_error in e:
+                limit_tokens -= 200
+            if lim_num_mes_error in e:
+                time.sleep(60)
             print("Произошла ошибка:", e)
     # print response
     content_value = response["choices"][0]["message"]["content"]
