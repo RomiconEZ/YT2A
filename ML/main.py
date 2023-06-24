@@ -1,4 +1,5 @@
 from typing import Any
+from urllib.parse import urlparse, parse_qs
 
 import docx
 import yt_dlp as youtube_dl
@@ -19,7 +20,7 @@ import tiktoken
 
 dotenv.load_dotenv(".env")
 openai.api_key = os.environ.get("API_KEY")
-url = "https://www.youtube.com/watch?v=gXYUsQcT7JI"
+url = "https://www.youtube.com/watch?v=_If-iQyL4n8"
 encoding = tiktoken.get_encoding("cl100k_base")
 
 
@@ -154,7 +155,11 @@ def create_annotation(str, limit_word):
     return content_value
 
 
-def get_subtitles_for_yt(link: str) -> tuple[DataFrame, str] | tuple[Any, str]:
+def get_title(url):
+    return YouTube(url).title
+
+
+def get_subtitles_for_yt(link: str):
     """
     Получение субтитров для yt видео
     """
@@ -163,6 +168,7 @@ def get_subtitles_for_yt(link: str) -> tuple[DataFrame, str] | tuple[Any, str]:
         yt = YouTube(link)
         dict_of_lang_subtitles = yt.captions
         title = yt.title
+
         lang_for_vid = detect_lang_for_vid(dict_of_lang_subtitles, title)
         print(f"ЯЗЫК: {lang_for_vid}")
         langs = ["ru", "en"]
@@ -195,7 +201,7 @@ def get_subtitles_for_yt(link: str) -> tuple[DataFrame, str] | tuple[Any, str]:
 
         df = set_capital(df)
 
-        return df, title
+        return df
 
     except Exception as e:
         print("Произошла ошибка:", e)
@@ -237,8 +243,11 @@ def extract_picture_from_yt_video(url: str, start_time: str = "00:00:00.000", nm
         ffmpeg_command = f'ffmpeg -ss {start_time} -i "{video_url}" -frames:v 1 -update 1 -y {nm_pct_with_ext}'
         subprocess.run(ffmpeg_command, shell=True)
 
+
 import docx.opc.constants
 import docx.oxml
+
+
 def add_hyperlink(paragraph, url, text, color, underline):
     """
     A function that places a hyperlink within a paragraph object.
@@ -284,7 +293,8 @@ def add_hyperlink(paragraph, url, text, color, underline):
 
     return hyperlink
 
-def get_seconds(time_str)->int:
+
+def get_seconds(time_str) -> int:
     # Разделение строки на составляющие
     hours, minutes, seconds = time_str.split(':')
     # Извлечение значения секунд и преобразование в целое число
@@ -292,11 +302,40 @@ def get_seconds(time_str)->int:
 
     return seconds
 
-def create_doc(df: pd.DataFrame, name_of_doc, title, url):
+
+def delete_file(path: str) -> bool:
+    if os.path.exists(path):
+        os.remove(path)
+        return True
+    else:
+        return False
+
+
+def get_yt_vid_id(url: str) -> str:
+    url_data = urlparse(url)
+    query = parse_qs(url_data.query)
+    if "v" in query.keys():
+        video_id = query["v"][0]
+    else:
+        video_id = url_data.geturl().split('/')[-1]
+    return video_id
+
+
+def create_doc(df: pd.DataFrame, url: str, word_limit_annotation: int = 1000):
     # Создание нового документа
+    video_id = get_yt_vid_id(url)
+    name_of_doc_file = "data/docx_file/" + video_id + '.docx'
+    image_path = "data/images/" + video_id + "_image.png"
+    temp_image_path = "data/images/" + video_id + "_temp_image.png"
+
+    title = get_title(url)
+
     doc = Document()
     # Добавление текстового содержимого из датафрейма в документ
     doc.add_heading(f"{title}", level=1)
+    annonation = create_annotation(concatenate_text(df), word_limit_annotation)
+    doc.add_paragraph(annonation)
+    doc.add_page_break()
     num_of_paragraph = 0
     for index, row in df.iterrows():
 
@@ -307,15 +346,15 @@ def create_doc(df: pd.DataFrame, name_of_doc, title, url):
         p = doc.add_paragraph("")
 
         time_code = get_seconds(row['start_time'])
-        link = url+f"&t={time_code}"
+        link = url + f"&t={time_code}"
 
         add_hyperlink(p, link, row['start_time'], 'FF8822', True)
 
         doc.add_paragraph(row['text'])
         # Добавление изображений в документ
-        extract_picture_from_yt_video(url, start_time=row["start_time"])
 
-        image_path = "output.jpg"
+        extract_picture_from_yt_video(url, start_time=row["start_time"], nm_pct_with_ext=image_path)
+
         img = Image.open(image_path)
 
         # Определение размеров изображения в дюймах (пропорционально)
@@ -328,30 +367,36 @@ def create_doc(df: pd.DataFrame, name_of_doc, title, url):
         img.thumbnail((desired_width, desired_height))
 
         # Сохранение временной копии масштабированного изображения в формате JPEG
-        temp_image_path = 'temp.jpg'
-        img.save(temp_image_path, 'JPEG')
 
+        img.save(temp_image_path, 'JPEG')
         # Добавление изображения в документ
         doc.add_picture(temp_image_path, width=desired_width, height=desired_height)
 
         # Разделитель между разделами документа
         # doc.add_page_break()
 
+    delete_file(image_path)
+    delete_file(temp_image_path)
     # Сохранение документа
-    doc.save(name_of_doc)
+    doc.save(name_of_doc_file)
+    return name_of_doc_file, annonation
 
 
-# extract_picture_from_yt_video(url, start_time = "00:01:00.000")
+def get_doc_from_url(url: str, word_limit_annotation: int=1000):
 
-#df, title = get_subtitles_for_yt(url)
-#df.to_csv('gen_sub.csv')
+    try:
+        df = get_subtitles_for_yt(url)
+        video_id = get_yt_vid_id(url)
+        path = "subtitle/" + video_id + ".csv"
+        df.to_csv(path)
+        name_of_doc_file, annonation = create_doc(df, url, word_limit_annotation)
+        return name_of_doc_file, annonation
+    except Exception as e:
+        print("Произошла ошибка:", e)
+        return None
 
-title = "TEXT"
-df = pd.read_csv('gen_sub.csv')
-name_of_doc = 'output_doc.docx'
-create_doc(df, name_of_doc, title, url)
 
-# openai part
+name_of_doc_file, annonation = get_doc_from_url(url,word_limit_annotation=1000)
+print(annonation)
+print(name_of_doc_file)
 
-# df = pd.read_csv('ML/gen_sub.csv')
-# print(create_annotation(concatenate_text(df), 500))
