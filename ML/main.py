@@ -384,7 +384,7 @@ def get_doc_from_url(url: str, word_limit_annotation: int=1000):
     try:
         df = get_subtitles_for_yt(url)
         video_id = get_yt_vid_id(url)
-        path = "subtitle/" + video_id + ".csv"
+        path = "data/subtitle/" + video_id + ".csv"
         df.to_csv(path)
         name_of_doc_file, annonation = create_doc(df, url, word_limit_annotation)
         return name_of_doc_file, annonation
