@@ -1,5 +1,6 @@
 import itertools
 
+import dotenv
 import pandas as pd
 from pytube import YouTube
 import speech_recognition as sr
@@ -14,7 +15,9 @@ import sys
 import openai
 import whisper
 
-openai.api_key = "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"
+
+dotenv.load_dotenv(".env")
+openai.api_key = os.environ.get("API_KEY")
 model_whisper = whisper.load_model("medium")
 
 logging.basicConfig(

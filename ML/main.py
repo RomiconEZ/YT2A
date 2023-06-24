@@ -3,7 +3,9 @@ import yt_dlp as youtube_dl
 from pandas import DataFrame
 from pytube import YouTube
 from ML.yt2t import YT2T
+import dotenv
 import re
+import os
 from langdetect import detect
 import openai
 import subprocess
@@ -13,7 +15,8 @@ from PIL import Image
 import pandas as pd
 import tiktoken
 
-openai.api_key = "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"
+dotenv.load_dotenv(".env")
+openai.api_key = os.environ.get("API_KEY")
 url = "https://www.youtube.com/watch?v=gXYUsQcT7JI"
 encoding = tiktoken.get_encoding("cl100k_base")
 
@@ -279,6 +282,6 @@ def create_doc(df: pd.DataFrame, name_of_doc, title, url):
 
 # openai part
 
-#df = pd.read_csv('gen_sub.csv')
-#print(create_annotation(concatenate_text(df), 500))
+df = pd.read_csv('gen_sub.csv')
+print(create_annotation(concatenate_text(df), 500))
 
