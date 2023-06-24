@@ -15,7 +15,8 @@ import openai
 import whisper
 
 openai.api_key = "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"
-model_whisper = whisper.load_model("large")
+#model_whisper = whisper.load_model("large")
+model_whisper = whisper.load_model("medium")
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | [%(filename)s:%(lineno)d] %(message)s",

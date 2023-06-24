@@ -1,17 +1,24 @@
+from typing import Any
 import yt_dlp as youtube_dl
+from pandas import DataFrame
 from pytube import YouTube
 from src.youtube2text.youtube2text import Youtube2Text, merge_rows
 import re
-import pandas as pd
 from langdetect import detect
 import openai
+import subprocess
+from docx import Document
+from docx.shared import Inches
+from PIL import Image
+import pandas as pd
 
 openai.api_key = "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"
+url = "https://www.youtube.com/watch?v=f6rAjdMY8lg"
+
 
 # a.ru - автоматически сгенерированные английские
 # ru - русский
 # en - английский
-
 def get_lang_clean_name(lang_name: str) -> str:
     """
     Получение чистого названия для языка
@@ -20,6 +27,7 @@ def get_lang_clean_name(lang_name: str) -> str:
         return lang_name.split(".", 1)[1]
     else:
         return lang_name
+
 
 def detect_language(text):
     lang = detect(text)
@@ -30,20 +38,22 @@ def detect_language(text):
     else:
         return None
 
+
 def generate_subtitles(lang, yt=None, url=None):
     converter = Youtube2Text()
     df = converter.url2text(urlpath=url, audioformat="flac", yt=yt, lang=lang)
     return df
 
 
-def detect_lang_for_vid(dict_of_lang_subtitles,title):
+def detect_lang_for_vid(dict_of_lang_subtitles, title):
     automatic_langs = {"a.ru": "ru-RU", "a.en": "en-US"}
     for lang in automatic_langs.keys():
         if lang in dict_of_lang_subtitles:
             return automatic_langs[lang]
     return detect_language(title)
 
-def get_subtitles_for_yt(link: str):
+
+def get_subtitles_for_yt(link: str) -> tuple[DataFrame, str] | tuple[Any, str]:
     """
     Получение субтитров для yt видео
     """
@@ -52,7 +62,7 @@ def get_subtitles_for_yt(link: str):
         yt = YouTube(link)
         dict_of_lang_subtitles = yt.captions
         title = yt.title
-        lang_for_vid = detect_lang_for_vid(dict_of_lang_subtitles,title)
+        lang_for_vid = detect_lang_for_vid(dict_of_lang_subtitles, title)
         print(f"ЯЗЫК: {lang_for_vid}")
         langs = ["ru", "en"]
 
@@ -73,18 +83,17 @@ def get_subtitles_for_yt(link: str):
                 # content_value = response["choices"][0]["message"]["content"]
                 # print(content_value)
 
-                df_yt = parse_subtitles(subtitles)
-                df_yt.to_csv('yt_sub.csv')
+                df = parse_subtitles(subtitles)
                 break
 
         else:
             if lang_for_vid is not None:
                 df = generate_subtitles(lang=lang_for_vid, yt=yt)
-                df.to_csv('gen_sub.csv')
-                print('save to csv')
+
+        return df, title
+
     except Exception as e:
         print("Произошла ошибка:", e)
-
 
 
 def parse_subtitles(subtitles_string):
@@ -108,37 +117,64 @@ def parse_subtitles(subtitles_string):
     return df
 
 
-url = "https://www.youtube.com/watch?v=_BD2qY7MYXY&list=PL6Nx1KDcurkCkGiG0hKWtBOQoDqnIBf9E&index=6"
-
-import subprocess
-
-def extract_picture_from_yt_video(url:str,start_time:str = "00:00:00.000", nm_pct_with_ext:str= "output.jpg"):
+def extract_picture_from_yt_video(url: str, start_time: str = "00:00:00.000", nm_pct_with_ext: str = "output.jpg"):
     ydl_opts = {
-        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",  # Определение формата видео
         "quiet": True,  # Отключение вывода информации от youtube_dl
     }
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         info_dict = ydl.extract_info(url, download=False)
         formats = info_dict.get("formats", [])
+        print(formats)
         mp4_formats = [format for format in formats if format.get("ext") == "mp4"]
         max_quality = max(mp4_formats, key=lambda x: x["quality"])
         video_url = max_quality["url"]
-        print(max_quality)
 
     if video_url:
         ffmpeg_command = f'ffmpeg -ss {start_time} -i "{video_url}" -frames:v 1 -update 1 -y {nm_pct_with_ext}'
         subprocess.run(ffmpeg_command, shell=True)
 
-#extract_picture_from_yt_video(url, start_time = "00:03:00.000")
 
-#get_subtitles_for_yt(url)
+def create_doc(df, name_of_doc, title, url):
+    # Создание нового документа
+    doc = Document()
+    # Добавление текстового содержимого из датафрейма в документ
+    doc.add_heading(f"{title}", level=1)
+    for index, row in df.iterrows():
+        doc.add_heading(f"Параграф {index + 1}", level=2)
+        doc.add_paragraph(row['text'])
+        # Добавление изображений в документ
+        extract_picture_from_yt_video(url, start_time=row["start_time"])
 
-df = pd.read_csv("gen_sub.csv")
-df = merge_rows(df)
-df.to_csv("gen_sub_merged.csv", index=False)
+        image_path = "output.jpg"
+        img = Image.open(image_path)
 
-#openai part
+        # Определение размеров изображения в дюймах (пропорционально)
+        img_width, img_height = img.size
+        aspect_ratio = img_width / img_height
+        desired_width = Inches(6)
+        desired_height = desired_width / aspect_ratio
+
+        # Масштабирование изображения с сохранением пропорций
+        img.thumbnail((desired_width, desired_height))
+
+        # Сохранение временной копии масштабированного изображения в формате JPEG
+        temp_image_path = 'temp.jpg'
+        img.save(temp_image_path, 'JPEG')
+
+        # Добавление изображения в документ
+        doc.add_picture(temp_image_path, width=desired_width, height=desired_height)
+
+        # Разделитель между разделами документа
+        doc.add_page_break()
+
+    # Сохранение документа
+    doc.save(name_of_doc)
 
 
+extract_picture_from_yt_video(url, start_time = "00:01:00.000")
 
+# df, title = get_subtitles_for_yt(url)
+# name_of_doc = 'output_doc.docx'
+# create_doc(df, name_of_doc, title, url)
 
+# openai part

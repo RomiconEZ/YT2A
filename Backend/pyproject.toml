@@ -20,6 +20,8 @@ langdetect = "^1.0.9"
 youtube-dl = "^2021.12.17"
 openai = "^0.27.8"
 openai-whisper = {git = "https://github.com/openai/whisper.git"}
+pillow = "^9.5.0"
+python-docx = "^0.8.11"
 
 [build-system]
 requires = ["poetry-core"]
