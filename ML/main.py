@@ -3,7 +3,7 @@ from urllib.parse import urlparse, parse_qs
 import docx
 import yt_dlp as youtube_dl
 from pytube import YouTube
-from .yt2t import YT2T
+from yt2t import YT2T
 import dotenv
 import re
 import os
@@ -150,7 +150,7 @@ def create_annotation(str, limit_word):
     # This model's maximum context length is 4097 tokens. - error extend len of message
     limit_tokens = round(limit_word * 2.8)
     if limit_tokens > 2600:
-        limit_tokens = 2600
+        limit_tokens = 3000
     message = f"Напиши аннотацию по данному тексту: {str}. В ответе верни только аннотацию."
     response = None
     len_ext_error = "This model's maximum context length"
@@ -165,10 +165,10 @@ def create_annotation(str, limit_word):
                     {"role": "user",
                      "content": f"{message}"}]
             )
-        except openai.InvalidRequestError as e:
-            if len_ext_error in e._message:
+        except Exception as e:
+            if len_ext_error in e:
                 limit_tokens -= 200
-            if lim_num_mes_error in e._message:
+            if lim_num_mes_error in e:
                 time.sleep(60)
             print("Произошла ошибка:", e)
     # print response
@@ -416,6 +416,47 @@ def get_doc_from_url(url: str, word_limit_annotation: int = 1000):
         return None
 
 
-# name_of_doc_file, annonation = get_doc_from_url(url,word_limit_annotation=1000)
-# print(annonation)
-# print(name_of_doc_file)
+#name_of_doc_file, annonation = get_doc_from_url(url, word_limit_annotation=1000)
+#print(annonation)
+#print(name_of_doc_file)
+
+
+def form_paragraph_for_gen(df: pd.DataFrame):
+    paragraph_df = pd.DataFrame({"text": [], "start_time": [], "end_time": []})
+    limit_symbols = 100
+    union_row = ""
+    union_start_time = None
+    union_by_len_row = ""
+
+    for index, row in df.iterrows():
+
+        if ".." in row["text"] or ",." in row["text"]:
+            union_row += " " + row["text"]
+            if union_start_time is None:
+                union_start_time = row["start_time"]
+            union_end_time = row["end_time"]
+        else:
+            if union_by_len_row == "":
+                if len(row["text"]) < limit_symbols:
+                    union_by_len_row = row["text"]
+                    union_by_len_start_time = row["start_time"]
+                    union_by_len_end_time = row["end_time"]
+                else:
+                    new_row = pd.DataFrame({"text": [row["text"]], "start_time": [row["start_time"]], "end_time": [row["end_time"]]})
+                    paragraph_df = pd.concat([paragraph_df, new_row], ignore_index=True)
+
+            else:
+                union_by_len_row += " " + row["text"]
+                union_by_len_end_time = row["end_time"]
+                if len(union_by_len_row) > limit_symbols:
+                    new_row = pd.DataFrame({"text": [union_by_len_row], "start_time": [union_by_len_start_time], "end_time": [union_by_len_end_time]})
+                    paragraph_df = pd.concat([paragraph_df, new_row], ignore_index=True)
+                    union_by_len_row = ""
+                    union_by_len_start_time = None
+                    union_by_len_end_time = None
+
+    return paragraph_df
+
+df = pd.read_csv('data/subtitle/_If-iQyL4n8.csv')
+df_test = form_paragraph_for_gen(df)
+df_test.to_csv("test_df.csv")
