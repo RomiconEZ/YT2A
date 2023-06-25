@@ -1,7 +1,7 @@
 import dotenv
 import os
 import re
-from telegram import Update, Message
+from telegram import Update, Message, InputMediaDocument
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from urllib.parse import urlparse, parse_qs
 from enum import Enum
@@ -11,7 +11,7 @@ class State(Enum):
     wait_for_article_length = 1  # Пользователь не отправил длину статьи
     wait_for_annotation_length = 2  # Пользователь не отправил 
 
-from ML import get_doc_from_url
+from ML import get_all_articles
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['state'] = State.wait_for_youtube_link
@@ -50,7 +50,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 context.user_data['video_id'] = video_id
 
-                await update.message.reply_text("Отправьте максимальное количество символов в статье. Если ограничений нет, то отправьте -1.")
+                await update.message.reply_text("Отправьте максимальное количество слов в статье. Если ограничений нет, то отправьте -1.")
             else:
                 context.user_data['state'] = State.wait_for_youtube_link
                 await update.message.reply_text("Данный адрес не является ссылкой на youtube видео. Попробуйте снова.")
@@ -71,7 +71,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             
             context.user_data['state'] = State.wait_for_annotation_length
-            await update.message.reply_text("Отправьте максимальное количество символов в аннотации. Если ограничений нет, то отправьте -1.")
+            await update.message.reply_text("Отправьте максимальное количество слов в аннотации. Если ограничений нет, то отправьте -1.")
 
         case State.wait_for_annotation_length:
             annotation_length = update.message.text
@@ -91,14 +91,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg: Message = await update.message.reply_text("Ваш запрос был принят. Ожидайте.")
 
             video_url = f'https://www.youtube.com/watch?v={context.user_data.get("video_id", "")}'
-            name_of_doc, annotation = get_doc_from_url(video_url, word_limit_annotation=context.user_data.get("annotation_length", 150000))
+            name_of_doc, name_of_gen_doc, annotation = get_all_articles(video_url, 
+                                                           word_limit_annotation=context.user_data.get("annotation_length", 150000),
+                                                           limit_article_length=context.user_data.get("article_length", 150000))
             await msg.delete()
-            await update.message.reply_document(name_of_doc, caption="Краткий пересказ:\n" + annotation)
+            media_group = []
+            media_group.append(InputMediaDocument(open(name_of_doc, 'rb'), caption="Краткий пересказ:\n" + annotation))
+            media_group.append(InputMediaDocument(open(name_of_gen_doc, 'rb')))
+            await update.message.reply_media_group(media_group)
             context.user_data['state'] = State.wait_for_youtube_link
 
 
 
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Возникла неожиданная ошибка. Пожалуйста, повторите запрос ещё раз через некоторое время.")
     print(f'При обновлении {update} произошла ошибка: {context.error}')
 
 if __name__ == '__main__':

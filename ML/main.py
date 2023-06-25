@@ -3,10 +3,11 @@ from urllib.parse import urlparse, parse_qs
 import docx
 import yt_dlp as youtube_dl
 from pytube import YouTube
-from yt2t import YT2T
+from .yt2t import YT2T
 import dotenv
 import re
 import os
+import asyncio
 from langdetect import detect
 import openai
 import subprocess
@@ -146,11 +147,12 @@ def create_annotation(str, limit_word):
     limit_tokens = round(limit_word * 2.8)
     if limit_tokens > 2600:
         limit_tokens = 2600
-    message = f"Напиши аннотацию по данному тексту: {str}. В ответе верни только аннотацию."
+    message = f"Напиши аннотацию по данному тексту: {str[:min(len(str), 1000)]}. В ответе верни только аннотацию."
     response = None
     len_ext_error = "This model's maximum context length"
     lim_num_mes_error = "Rate limit reached"
-    while response is None and limit_tokens > 0:
+    done = False
+    while not done and limit_tokens > 0:
         try:
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
@@ -160,12 +162,13 @@ def create_annotation(str, limit_word):
                     {"role": "user",
                      "content": f"{message}"}]
             )
+            done = True
         except openai.InvalidRequestError as e:
             if len_ext_error in e._message:
                 limit_tokens -= 150
             if lim_num_mes_error in e._message:
                 time.sleep(20)
-            print("Произошла ошибка:", e, flush=True)
+            done = False
     # print response
     content_value = response["choices"][0]["message"]["content"]
     return content_value
@@ -460,7 +463,9 @@ def gen_text_based_on_paragraph(df_subtitle:pd.DataFrame, limit_article_length:i
         response = None
         limit_tokens_row = limit_tokens
         message = f"Cформируй связный красивый текст из данного текста: {row['text']}. В ответе верни только сам текст."
-        while response is None and limit_tokens_row > 0:
+        done = False
+        while not done and limit_tokens_row > 0:
+            time.sleep(2)
             try:
                 response = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
@@ -470,12 +475,13 @@ def gen_text_based_on_paragraph(df_subtitle:pd.DataFrame, limit_article_length:i
                         {"role": "user",
                          "content": f"{message}"}]
                 )
+                done = True
             except openai.InvalidRequestError as e:
                 if len_ext_error in e._message:
                     limit_tokens_row -= 150
                 if lim_num_mes_error in e._message:
                     time.sleep(20)
-                print("Произошла ошибка:", e, flush=True)
+                done = False
         # print response
         content_value = response["choices"][0]["message"]["content"]
         row['text'] = content_value
@@ -488,5 +494,5 @@ def get_all_articles(url,word_limit_annotation=1000, limit_article_length=100000
     name_of_doc_gen_file = gen_text_based_on_paragraph(df_subtitle, limit_article_length, url)
     return name_of_doc_file,name_of_doc_gen_file,annonation
 
-url = "https://www.youtube.com/watch?v=V6G3sPbgubY"
-print(get_all_articles(url))
+# url = "https://www.youtube.com/watch?v=V6G3sPbgubY"
+# print(get_all_articles(url))
