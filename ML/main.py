@@ -3,7 +3,7 @@ from urllib.parse import urlparse, parse_qs
 import docx
 import yt_dlp as youtube_dl
 from pytube import YouTube
-from .yt2t import YT2T
+from yt2t import YT2T
 import dotenv
 import re
 import os
@@ -18,7 +18,7 @@ import tiktoken
 
 dotenv.load_dotenv(".env")
 openai.api_key = os.environ.get("API_KEY")
-url = "https://www.youtube.com/watch?v=_If-iQyL4n8"
+url = "https://www.youtube.com/watch?v=V6G3sPbgubY"
 encoding = tiktoken.get_encoding("cl100k_base")
 
 
@@ -326,21 +326,22 @@ def get_yt_vid_id(url: str) -> str:
     return video_id
 
 
-def create_doc(df: pd.DataFrame, url: str, word_limit_annotation: int = 1000):
+def create_doc(df: pd.DataFrame, url: str, word_limit_annotation: int = 1000, add_annonation:bool = True, add_name:str=""):
     # Создание нового документа
     video_id = get_yt_vid_id(url)
-    name_of_doc_file = "data/docx_file/" + video_id + '.docx'
-    image_path = "data/images/" + video_id + "_image.png"
-    temp_image_path = "data/images/" + video_id + "_temp_image.png"
+    name_of_doc_file = "data/docx_file/" + video_id + add_name + '.docx'
+    image_path = "data/images/" + video_id + add_name + "_image.png"
+    temp_image_path = "data/images/" + video_id + add_name + "_temp_image.png"
 
     title = get_title(url)
 
     doc = Document()
     # Добавление текстового содержимого из датафрейма в документ
     doc.add_heading(f"{title}", level=1)
-    annonation = create_annotation(concatenate_text(df), word_limit_annotation)
-    doc.add_paragraph(annonation)
-    doc.add_page_break()
+    if add_annonation is True:
+        annonation = create_annotation(concatenate_text(df), word_limit_annotation)
+        doc.add_paragraph(annonation)
+        doc.add_page_break()
     num_of_paragraph = 0
     for index, row in df.iterrows():
 
@@ -384,7 +385,10 @@ def create_doc(df: pd.DataFrame, url: str, word_limit_annotation: int = 1000):
     delete_file(temp_image_path)
     # Сохранение документа
     doc.save(name_of_doc_file)
-    return name_of_doc_file, annonation
+    if add_annonation is True:
+        return name_of_doc_file, annonation
+    else:
+        return name_of_doc_file
 
 
 def get_doc_from_url(url: str, word_limit_annotation: int = 1000):
@@ -400,14 +404,12 @@ def get_doc_from_url(url: str, word_limit_annotation: int = 1000):
         return None
 
 
-#name_of_doc_file, annonation, df_subtitle = get_doc_from_url(url, word_limit_annotation=1000)
-#print(annonation)
-#print(name_of_doc_file)
 
 
 def form_paragraph_for_gen(df: pd.DataFrame):
+    df['text'].iloc[-1] = df['text'].iloc[-1].replace("..", "").replace(",.", "")
     paragraph_df = pd.DataFrame({"text": [], "start_time": [], "end_time": []})
-    limit_symbols = 100
+    limit_symbols = 150
     union_row = ""
     union_start_time = None
     union_by_len_row = ""
@@ -415,34 +417,79 @@ def form_paragraph_for_gen(df: pd.DataFrame):
     for index, row in df.iterrows():
 
         if ".." in row["text"] or ",." in row["text"]:
-            union_row += " " + row["text"]
-            if union_start_time is None:
+            if union_row=="":
+                union_row = row["text"]
                 union_start_time = row["start_time"]
+            else:
+                union_row += " " + row["text"]
             union_end_time = row["end_time"]
         else:
-            if union_by_len_row == "":
-                if len(row["text"]) < limit_symbols:
-                    union_by_len_row = row["text"]
-                    union_by_len_start_time = row["start_time"]
-                    union_by_len_end_time = row["end_time"]
-                else:
-                    new_row = pd.DataFrame({"text": [row["text"]], "start_time": [row["start_time"]], "end_time": [row["end_time"]]})
-                    paragraph_df = pd.concat([paragraph_df, new_row], ignore_index=True)
+            if union_row != "":
+                union_row += " " + row["text"]
+                union_end_time = row["end_time"]
+                if union_by_len_row != "":
+                    union_by_len_row += " "
+                union_by_len_row += union_row
+                union_by_len_start_time = union_start_time
+                union_by_len_end_time = union_end_time
+                union_row = ""
+                union_start_time = None
+                union_end_time = None
 
-            else:
-                union_by_len_row += " " + row["text"]
+            if union_by_len_row == "":
+                union_by_len_row = row["text"]
+                union_by_len_start_time = row["start_time"]
                 union_by_len_end_time = row["end_time"]
-                if len(union_by_len_row) > limit_symbols:
-                    new_row = pd.DataFrame({"text": [union_by_len_row], "start_time": [union_by_len_start_time], "end_time": [union_by_len_end_time]})
-                    paragraph_df = pd.concat([paragraph_df, new_row], ignore_index=True)
-                    union_by_len_row = ""
-                    union_by_len_start_time = None
-                    union_by_len_end_time = None
+            if len(union_by_len_row) >= limit_symbols:
+                new_row = pd.DataFrame({"text": [union_by_len_row], "start_time": [union_by_len_start_time], "end_time": [union_by_len_end_time]})
+                paragraph_df = pd.concat([paragraph_df, new_row], ignore_index=True)
+                union_by_len_row = ""
+                union_by_len_start_time = None
+                union_by_len_end_time = None
+    if union_by_len_row != "":
+        new_row = pd.DataFrame({"text": [union_by_len_row], "start_time": [union_by_len_start_time],
+                                "end_time": [union_by_len_end_time]})
+        paragraph_df = pd.concat([paragraph_df, new_row], ignore_index=True)
 
     return paragraph_df
 
-# def gen_text_based_on_paragraph(df_subtitle:pd.DataFrame):
-#     df_form_paragraph = form_paragraph_for_gen(df_subtitle)
-#     for index, row in df_form_paragraph.iterrows():
+def gen_text_based_on_paragraph(df_subtitle:pd.DataFrame, limit_article_length:int, url: str):
+    df_form_paragraph = form_paragraph_for_gen(df_subtitle)
+    num_of_paragraph = df_form_paragraph.shape[0]
+    len_of_one_paragraph = round(limit_article_length/num_of_paragraph)
+    limit_tokens = round(len_of_one_paragraph * 2.8)
+    if limit_tokens > 2500:
+        limit_tokens = 2500
 
+    response = None
+    len_ext_error = "This model's maximum context length"
+    lim_num_mes_error = "Rate limit reached"
 
+    for index, row in df_form_paragraph.iterrows():
+        message = f"Cформируй связный красивый текст из данного текста: {row['text']}. В ответе верни только сам текст."
+        while response is None and limit_tokens > 0:
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    temperature=0,
+                    max_tokens=limit_tokens,
+                    messages=[
+                        {"role": "user",
+                         "content": f"{message}"}]
+                )
+            except openai.InvalidRequestError as e:
+                if len_ext_error in e._message:
+                    limit_tokens -= 200
+                if lim_num_mes_error in e._message:
+                    time.sleep(60)
+                print("Произошла ошибка:", e)
+        # print response
+        content_value = response["choices"][0]["message"]["content"]
+        row['text'] = content_value
+
+    name_of_doc_file = create_doc(df_form_paragraph, url, 1000, False,add_name='_gen_vers_')
+    return name_of_doc_file
+
+name_of_doc_file, annonation, df_subtitle = get_doc_from_url(url, word_limit_annotation=1000)
+name = gen_text_based_on_paragraph(df_subtitle, 100000, url)
+print(name)
