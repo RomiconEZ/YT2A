@@ -15,10 +15,11 @@ from docx.shared import Inches
 from PIL import Image
 import pandas as pd
 import tiktoken
+import docx.opc.constants
+import docx.oxml
 
 dotenv.load_dotenv(".env")
 openai.api_key = os.environ.get("API_KEY")
-url = "https://www.youtube.com/watch?v=V6G3sPbgubY"
 encoding = tiktoken.get_encoding("cl100k_base")
 
 
@@ -34,7 +35,6 @@ def get_lang_clean_name(lang_name: str) -> str:
     else:
         return lang_name
 
-
 def detect_language(text):
     lang = detect(text)
     if lang == "ru":
@@ -43,7 +43,6 @@ def detect_language(text):
         return "en-US"
     else:
         return None
-
 
 def generate_subtitles(lang, yt=None, url=None):
     converter = YT2T()
@@ -163,10 +162,10 @@ def create_annotation(str, limit_word):
             )
         except openai.InvalidRequestError as e:
             if len_ext_error in e._message:
-                limit_tokens -= 200
+                limit_tokens -= 150
             if lim_num_mes_error in e._message:
-                time.sleep(60)
-            print("Произошла ошибка:", e)
+                time.sleep(20)
+            print("Произошла ошибка:", e, flush=True)
     # print response
     content_value = response["choices"][0]["message"]["content"]
     return content_value
@@ -185,22 +184,20 @@ def get_subtitles_for_yt(link: str):
         yt = YouTube(link)
         dict_of_lang_subtitles = yt.captions
         title = yt.title
-
         lang_for_vid = detect_lang_for_vid(dict_of_lang_subtitles, title)
-        print(f"ЯЗЫК: {lang_for_vid}")
-        langs = ["ru", "en"]
 
-        for lang in langs:
-            if lang in dict_of_lang_subtitles:
-                subtitles = yt.captions[lang].generate_srt_captions()
+        # langs = ["ru", "en"]
+        # for lang in langs:
+        #     if lang in dict_of_lang_subtitles:
+        #         subtitles = yt.captions[lang].generate_srt_captions()
+        #         df = parse_subtitles(subtitles)
+        #         break
+        #
+        # else:
+        #     if lang_for_vid is not None:
+        #         df = generate_subtitles(lang=lang_for_vid, yt=yt)
 
-
-                df = parse_subtitles(subtitles)
-                break
-
-        else:
-            if lang_for_vid is not None:
-                df = generate_subtitles(lang=lang_for_vid, yt=yt)
+        df = generate_subtitles(lang=lang_for_vid, yt=yt)
 
         df = remove_rows_without_letters_and_numbers(df)
 
@@ -249,8 +246,7 @@ def extract_picture_from_yt_video(url: str, start_time: str = "00:00:00.000", nm
         subprocess.run(ffmpeg_command, shell=True)
 
 
-import docx.opc.constants
-import docx.oxml
+
 
 
 def add_hyperlink(paragraph, url, text, color, underline):
@@ -394,17 +390,14 @@ def create_doc(df: pd.DataFrame, url: str, word_limit_annotation: int = 1000, ad
 def get_doc_from_url(url: str, word_limit_annotation: int = 1000):
     try:
         df = get_subtitles_for_yt(url)
-        video_id = get_yt_vid_id(url)
-        path = "data/subtitle/" + video_id + ".csv"
-        df.to_csv(path)
+        #video_id = get_yt_vid_id(url)
+        #path = "data/subtitle/" + video_id + ".csv"
+        #df.to_csv(path)
         name_of_doc_file, annonation = create_doc(df, url, word_limit_annotation)
         return name_of_doc_file, annonation, df
     except Exception as e:
         print("Произошла ошибка:", e)
-        return None
-
-
-
+        return None,None,None
 
 def form_paragraph_for_gen(df: pd.DataFrame):
     df['text'].iloc[-1] = df['text'].iloc[-1].replace("..", "").replace(",.", "")
@@ -460,36 +453,40 @@ def gen_text_based_on_paragraph(df_subtitle:pd.DataFrame, limit_article_length:i
     limit_tokens = round(len_of_one_paragraph * 2.8)
     if limit_tokens > 2500:
         limit_tokens = 2500
-
-    response = None
     len_ext_error = "This model's maximum context length"
     lim_num_mes_error = "Rate limit reached"
 
     for index, row in df_form_paragraph.iterrows():
+        response = None
+        limit_tokens_row = limit_tokens
         message = f"Cформируй связный красивый текст из данного текста: {row['text']}. В ответе верни только сам текст."
-        while response is None and limit_tokens > 0:
+        while response is None and limit_tokens_row > 0:
             try:
                 response = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
                     temperature=0,
-                    max_tokens=limit_tokens,
+                    max_tokens=limit_tokens_row,
                     messages=[
                         {"role": "user",
                          "content": f"{message}"}]
                 )
             except openai.InvalidRequestError as e:
                 if len_ext_error in e._message:
-                    limit_tokens -= 200
+                    limit_tokens_row -= 200
                 if lim_num_mes_error in e._message:
-                    time.sleep(60)
-                print("Произошла ошибка:", e)
+                    time.sleep(20)
+                print("Произошла ошибка:", e, flush=True)
         # print response
         content_value = response["choices"][0]["message"]["content"]
         row['text'] = content_value
 
-    name_of_doc_file = create_doc(df_form_paragraph, url, 1000, False,add_name='_gen_vers_')
+    name_of_doc_file = create_doc(df_form_paragraph, url, 0, False, add_name='_gen_vers_')
     return name_of_doc_file
 
-name_of_doc_file, annonation, df_subtitle = get_doc_from_url(url, word_limit_annotation=1000)
-name = gen_text_based_on_paragraph(df_subtitle, 100000, url)
-print(name)
+def get_all_articles(url,word_limit_annotation=1000, limit_article_length=100000):
+    name_of_doc_file, annonation, df_subtitle = get_doc_from_url(url, word_limit_annotation=word_limit_annotation)
+    name_of_doc_gen_file = gen_text_based_on_paragraph(df_subtitle, limit_article_length, url)
+    return name_of_doc_file,name_of_doc_gen_file,annonation
+
+url = "https://www.youtube.com/watch?v=V6G3sPbgubY"
+print(get_all_articles(url))
