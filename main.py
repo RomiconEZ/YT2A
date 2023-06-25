@@ -6,16 +6,12 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from urllib.parse import urlparse, parse_qs
 from enum import Enum
 
-<<<<<<< Updated upstream
 class State(Enum):
     wait_for_youtube_link = 0  # Пользователь ещё не отправил ссылку на видео
     wait_for_article_length = 1  # Пользователь не отправил длину статьи
     wait_for_annotation_length = 2  # Пользователь не отправил 
 
 from ML import get_doc_from_url
-=======
-from ML import get_doc_from_url, get_subtitles_for_yt
->>>>>>> Stashed changes
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['state'] = State.wait_for_youtube_link
@@ -26,7 +22,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-<<<<<<< Updated upstream
     state = context.user_data.get('state', State.wait_for_youtube_link)
 
 
@@ -99,37 +94,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await msg.delete()
             await update.message.reply_document(name_of_doc, caption="Краткий пересказ:\n" + annotation)
             context.user_data['state'] = State.wait_for_youtube_link
-=======
-    url = update.message.text
-
-    youtube_regex = (
-        r'(https?://)?(www\.)?'
-        '(youtube|youtu|youtube-nocookie)\.(be|com)/'
-        '(watch\?v=|embed/|v/|.+\?v=)?([^&=%\?]{11})')
-
-
-    if re.match(youtube_regex, url):
-        msg: Message = await update.message.reply_text("Ожидайте")
-
-        url_data = urlparse(url)
-        query = parse_qs(url_data.query)
-        if "v" in query.keys():
-            video_id = query["v"][0]
-            video_url = f'https://www.youtube.com/watch?v={video_id}'
-
-            name_of_doc, annotation = get_doc_from_url(video_url)
-            
-            await msg.delete()
-            await update.message.reply_document(name_of_doc, caption="Краткий пересказ:\n" + annotation)
-            return
-
-        video_id = url_data.geturl().split('/')[-1]
-        video_url = f'https://www.youtube.com/watch?v={video_id}'
-
-        name_of_doc, annotation = get_doc_from_url(video_url)
-        await msg.delete()
-        await update.message.reply_document(name_of_doc, caption="Краткий пересказ:\n" + annotation)
->>>>>>> Stashed changes
 
 
 
