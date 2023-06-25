@@ -5,6 +5,7 @@ import pandas as pd
 from pytube import YouTube
 import speech_recognition as sr
 import ffmpeg
+import time
 import os
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
@@ -254,23 +255,32 @@ class YT2T:
             logger.info(f"Audio file exist at {audiofile}. Download skipped")
 
         else:
-            if urlpath != None and yt == None:
-                yt = YouTube(urlpath)
+            audio = None
 
-            stream_url = yt.streams[0].url
+            done = False
+            while not done:
+                try:
+                    if urlpath != None and yt == None:
+                        yt = YouTube(urlpath)
 
-            video = self.get_yt_video(yt)
+                    stream_url = yt.streams[0].url
 
-            acodec = 'pcm_s16le' if audioformat == 'wav' else audioformat
+                    video = self.get_yt_video(yt)
 
-            logger.info(f"Audio at sample rate {audiosamplingrate}")
+                    acodec = 'pcm_s16le' if audioformat == 'wav' else audioformat
 
-            audio, err = (
-                ffmpeg
-                .input(stream_url)
-                .output("pipe:", format=audioformat, **{'ar': str(audiosamplingrate), 'acodec': acodec})
-                .run(capture_stdout=True)
-            )
+                    logger.info(f"Audio at sample rate {audiosamplingrate}")
+                    audio, err = (
+                        ffmpeg
+                        .input(stream_url)
+                        .output("pipe:", format=audioformat, **{'ar': str(audiosamplingrate), 'acodec': acodec})
+                        .run(capture_stdout=True)
+                    )
+                    done = True
+                except Exception as e:
+                    print("Ошибка при скачивании.", flush=True)
+                    done = False
+                    time.sleep(10)
 
             with open(audiofile, 'wb') as f:
                 f.write(audio)

@@ -1,1 +1,1 @@
-from .main import get_doc_from_url, get_subtitles_for_yt
+from .main import get_all_articles
