@@ -472,7 +472,7 @@ def gen_text_based_on_paragraph(df_subtitle:pd.DataFrame, limit_article_length:i
                 )
             except openai.InvalidRequestError as e:
                 if len_ext_error in e._message:
-                    limit_tokens_row -= 200
+                    limit_tokens_row -= 150
                 if lim_num_mes_error in e._message:
                     time.sleep(20)
                 print("Произошла ошибка:", e, flush=True)
