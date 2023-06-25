@@ -3,11 +3,10 @@ from urllib.parse import urlparse, parse_qs
 import docx
 import yt_dlp as youtube_dl
 from pytube import YouTube
-from .yt2t import YT2T
+from yt2t import YT2T
 import dotenv
 import re
 import os
-import asyncio
 from langdetect import detect
 import openai
 import subprocess
@@ -145,8 +144,8 @@ def create_annotation(str, limit_word):
     # Rate limit reached - error limit num of message
     # This model's maximum context length is 4097 tokens. - error extend len of message
     limit_tokens = round(limit_word * 2.8)
-    if limit_tokens > 2600:
-        limit_tokens = 2600
+    if limit_tokens > 2500:
+        limit_tokens = 2500
     message = f"Напиши аннотацию по данному тексту: {str[:min(len(str), 1000)]}. В ответе верни только аннотацию."
     response = None
     len_ext_error = "This model's maximum context length"
@@ -165,7 +164,7 @@ def create_annotation(str, limit_word):
             done = True
         except openai.InvalidRequestError as e:
             if len_ext_error in e._message:
-                limit_tokens -= 150
+                limit_tokens -= 200
             if lim_num_mes_error in e._message:
                 time.sleep(20)
             done = False
@@ -325,7 +324,7 @@ def get_yt_vid_id(url: str) -> str:
     return video_id
 
 
-def create_doc(df: pd.DataFrame, url: str, word_limit_annotation: int = 1000, add_annonation:bool = True, add_name:str=""):
+def create_doc(df: pd.DataFrame, url: str, word_limit_annotation: int = 1000, add_annonation:bool = True, add_name:str="", add_paragraph_name:bool = False):
     # Создание нового документа
     video_id = get_yt_vid_id(url)
     name_of_doc_file = "data/docx_file/" + video_id + add_name + '.docx'
@@ -346,8 +345,10 @@ def create_doc(df: pd.DataFrame, url: str, word_limit_annotation: int = 1000, ad
 
         if row['text'].strip()[0].isupper():
             num_of_paragraph += 1
-            doc.add_heading(f"Параграф {num_of_paragraph}", level=2)
-
+            if add_paragraph_name is True:
+                doc.add_heading(f"{row['name']}", level=2)
+            else:
+                doc.add_heading(f"Параграф {num_of_paragraph}", level=2)
         p = doc.add_paragraph("")
 
         time_code = get_seconds(row['start_time'])
@@ -405,7 +406,7 @@ def get_doc_from_url(url: str, word_limit_annotation: int = 1000):
 def form_paragraph_for_gen(df: pd.DataFrame):
     df['text'].iloc[-1] = df['text'].iloc[-1].replace("..", "").replace(",.", "")
     paragraph_df = pd.DataFrame({"text": [], "start_time": [], "end_time": []})
-    limit_symbols = 150
+    limit_symbols = 75
     union_row = ""
     union_start_time = None
     union_by_len_row = ""
@@ -459,10 +460,11 @@ def gen_text_based_on_paragraph(df_subtitle:pd.DataFrame, limit_article_length:i
     len_ext_error = "This model's maximum context length"
     lim_num_mes_error = "Rate limit reached"
 
+
     for index, row in df_form_paragraph.iterrows():
         response = None
         limit_tokens_row = limit_tokens
-        message = f"Cформируй связный красивый текст из данного текста: {row['text']}. В ответе верни только сам текст."
+        message = f"Cформируй связный текст из данного текста: {row['text']}. В ответе верни только сам текст."
         done = False
         while not done and limit_tokens_row > 0:
             time.sleep(2)
@@ -478,15 +480,43 @@ def gen_text_based_on_paragraph(df_subtitle:pd.DataFrame, limit_article_length:i
                 done = True
             except openai.InvalidRequestError as e:
                 if len_ext_error in e._message:
-                    limit_tokens_row -= 150
+                    limit_tokens_row -= 200
                 if lim_num_mes_error in e._message:
                     time.sleep(20)
                 done = False
+
         # print response
         content_value = response["choices"][0]["message"]["content"]
         row['text'] = content_value
 
-    name_of_doc_file = create_doc(df_form_paragraph, url, 0, False, add_name='_gen_vers_')
+    name_of_paragraph_list = []
+    for index, row in df_form_paragraph.iterrows():
+        response = None
+        limit_tokens_row = limit_tokens
+        message = f"Напиши название для данного параграфа: {row['text']}. В ответе верни только название."
+        done = False
+        while not done and limit_tokens_row > 0:
+            time.sleep(2)
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    temperature=0,
+                    messages=[
+                        {"role": "user",
+                         "content": f"{message}"}]
+                )
+                done = True
+            except openai.InvalidRequestError as e:
+                if len_ext_error in e._message:
+                    limit_tokens_row -= 200
+                if lim_num_mes_error in e._message:
+                    time.sleep(20)
+                done = False
+
+        name_of_paragraph_list.append(response["choices"][0]["message"]["content"])
+
+    df_form_paragraph["name"] = name_of_paragraph_list
+    name_of_doc_file = create_doc(df_form_paragraph, url, 0, False, add_name='_gen_vers_', add_paragraph_name=True)
     return name_of_doc_file
 
 def get_all_articles(url,word_limit_annotation=1000, limit_article_length=100000):
@@ -494,5 +524,5 @@ def get_all_articles(url,word_limit_annotation=1000, limit_article_length=100000
     name_of_doc_gen_file = gen_text_based_on_paragraph(df_subtitle, limit_article_length, url)
     return name_of_doc_file,name_of_doc_gen_file,annonation
 
-# url = "https://www.youtube.com/watch?v=V6G3sPbgubY"
-# print(get_all_articles(url))
+url = "https://www.youtube.com/watch?v=B96pAuLSgdk"
+print(get_all_articles(url))
